@@ -1,0 +1,96 @@
+name: Render Rome Photorealistic AI-Depth 3D (20 Shards)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  render_shard:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Node dependencies (three + puppeteer-core)
+        run: |
+          cd rome_ai_3d
+          npm init -y
+          npm install three@0.170.0 puppeteer-core@23.9.0
+
+      - name: Render 30-frame shard (1920x1080 @ 30fps)
+        run: |
+          START=$(( ${{ matrix.shard }} * 30 ))
+          END=$(( START + 29 ))
+          echo "Rendering AI-3D shard ${{ matrix.shard }}: frames $START to $END"
+          node rome_ai_3d/render_rome_ai_3d.js \
+            --start $START \
+            --end $END \
+            --assets rome_ai_3d/assets \
+            --client rome_ai_3d/rome_ai_3d_client.js \
+            --three rome_ai_3d/node_modules/three/build \
+            --out /tmp/shard_${{ matrix.shard }}
+
+      - name: Upload shard frames
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai3d-shard-${{ matrix.shard }}
+          path: /tmp/shard_${{ matrix.shard }}/frame_*.jpg
+          retention-days: 1
+
+  assemble:
+    needs: render_shard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all 20 shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ai3d-shard-*
+          path: /tmp/all_frames
+          merge-multiple: true
+
+      - name: Assemble 1080p MP4 (600 frames, 20.0s @ 30fps, CRF 14) + Final QA Sheet
+        run: |
+          ls -la /tmp/all_frames | head -n 20
+          COUNT=$(ls -1 /tmp/all_frames/frame_*.jpg | wc -l)
+          echo "Total frames downloaded: $COUNT"
+          mkdir -p /tmp/final_out
+          ffmpeg -y -framerate 30 -i /tmp/all_frames/frame_%04d.jpg \
+            -i rome_ai_3d/assets/rome_20s_master_audio.m4a \
+            -c:v libx264 -preset slow -crf 14 -pix_fmt yuv420p \
+            -c:a copy -shortest /tmp/final_out/ROME-AI-3D-ULTIMATE-1080P.mp4
+          python3 - << 'PYEOF'
+          from PIL import Image, ImageDraw
+          cols, rows = 2, 5
+          tw, th = 640, 360
+          grid = Image.new("RGB", (cols * tw, rows * th), (10, 12, 16))
+          draw = ImageDraw.Draw(grid)
+          frames = [24, 84, 144, 210, 264, 330, 384, 450, 504, 576]
+          labels = [
+              "Shot 1A (f0024): AI-3D Aqueduct + Cyan Laser Scan", "Shot 1B (f0084): AI-3D Parallax + Specus Flow",
+              "Shot 2A (f0144): AI-3D Obsidian Map + Aqua Marcia", "Shot 2B (f0210): Aqua Marcia 90 km 3D Spline",
+              "Shot 3A (f0264): AI-3D Geological Cutaway Diorama", "Shot 3B (f0330): 3D Cyan Flow to Rome Temple",
+              "Shot 4A (f0384): AI-3D Studio Aqueduct (1.5-3m/km)", "Shot 4B (f0450): AI-3D Studio Aqueduct (0.09-0.17 deg)",
+              "Shot 5A (f0504): AI-3D Valley Cutaway + Header Tank", "Shot 5B (f0576): AI-3D Pressurized Cyan U-Siphon"
+          ]
+          for i, fn in enumerate(frames):
+              im = Image.open(f"/tmp/all_frames/frame_{fn:04d}.jpg").resize((tw, th), Image.Resampling.LANCZOS)
+              x, y = (i % cols) * tw, (i // cols) * th
+              grid.paste(im, (x, y))
+              draw.rectangle([x + 8, y + 8, x + 460, y + 34], fill=(0, 0, 0))
+              draw.text((x + 14, y + 12), labels[i], fill=(0, 240, 255))
+          grid.save("/tmp/final_out/ROME-AI-3D-FINAL-QA-10.jpg", quality=94)
+          PYEOF
+          ls -lh /tmp/final_out/
+
+      - name: Upload Final 1080p AI-3D Master Video
+        uses: actions/upload-artifact@v4
+        with:
+          name: ROME-AI-3D-ULTIMATE-1080P
+          path: /tmp/final_out/*
+          retention-days: 5
