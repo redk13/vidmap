@@ -52,7 +52,7 @@ jobs:
 
       - name: Assemble 1080p MP4 + Final QA Sheet
         run: |
-          mkdir -p /tmp/final_tech2
+          pip install -q pillow && mkdir -p /tmp/final_tech2
           ffmpeg -y -framerate 30 -start_number 1 -i /tmp/all_tech2_frames/frame_%04d.jpg \
             -i rome_ai_3d/assets/rome_20s_master_audio.m4a \
             -c:v libx264 -preset fast -crf 16 -pix_fmt yuv420p \
