@@ -357,6 +357,29 @@ def create_3d_text_badge(col, name, text_str, loc, size=0.42, mat_txt=mat_white_
         return t_obj, p_obj
     return t_obj, None
 
+
+def add_3d_pointer(col, badge_loc, target_loc, mat_rod):
+    c_data = bpy.data.curves.new("PtrRod", type='CURVE')
+    c_data.dimensions = '3D'
+    c_data.bevel_depth = 0.018
+    c_data.bevel_resolution = 4
+    sp = c_data.splines.new('POLY')
+    sp.points.add(1)
+    sp.points[0].co = (badge_loc.x, badge_loc.y - 0.25, badge_loc.z - 0.02, 1.0)
+    sp.points[1].co = (target_loc.x, target_loc.y, target_loc.z + 0.04, 1.0)
+    rod_obj = bpy.data.objects.new("PtrRodObj", c_data)
+    rod_obj.data.materials.append(mat_rod)
+    col.objects.link(rod_obj)
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=0.075)
+    sm = bpy.data.meshes.new("PtrDotMesh")
+    bm.to_mesh(sm)
+    bm.free()
+    dot_obj = bpy.data.objects.new("PtrDotObj", sm)
+    dot_obj.location = (target_loc.x, target_loc.y, target_loc.z + 0.05)
+    dot_obj.data.materials.append(mat_rod)
+    col.objects.link(dot_obj)
+
 def create_point_light(col, name, color_rgb, energy=180.0, radius=0.6):
     l_data = bpy.data.lights.new(name=name, type='POINT')
     l_data.color = color_rgb
@@ -399,6 +422,7 @@ s2_lbl_marcia, _ = create_3d_text_badge(shot_collections[1], "S2_MarciaLbl", "Aq
 
 p_pop_lbl = map_pt3d(1, 0.15, 0.53, z_off=0.35)
 s2_lbl_pop, _ = create_3d_text_badge(shot_collections[1], "S2_PopLbl", "1,000,000", p_pop_lbl, size=0.44, mat_txt=mat_white_text, plate_w=2.8, plate_h=0.68)
+add_3d_pointer(shot_collections[1], p_pop_lbl, map_pt3d(1, 0.325, 0.565, z_off=0.08), mat_white_text)
 
 s2_lbl_km, s2_plate_km = create_3d_text_badge(shot_collections[1], "S2_KmLbl", "90 km (55 mi)", s2_pts[-1] + Vector((0, 0.55, 0.35)), size=0.40, mat_txt=mat_gold_text, plate_w=3.1, plate_h=0.65)
 s2_sub, _ = create_3d_text_badge(
@@ -418,9 +442,11 @@ s3_light = create_point_light(shot_collections[2], "S3_FlowLight", (0.0, 0.9, 1.
 
 p_ws = map_pt3d(2, 0.85, 0.28, z_off=0.35)
 create_3d_text_badge(shot_collections[2], "S3_WS", "Water source", p_ws, size=0.44, mat_txt=mat_cyan_text, plate_w=3.2, plate_h=0.68)
+add_3d_pointer(shot_collections[2], p_ws, map_pt3d(2, 0.86, 0.51, z_off=0.09), mat_cyan_text)
 
 p_rome = map_pt3d(2, 0.13, 0.14, z_off=0.35)
 create_3d_text_badge(shot_collections[2], "S3_Rome", "Rome", p_rome, size=0.46, mat_txt=mat_white_text, plate_w=2.0, plate_h=0.68)
+add_3d_pointer(shot_collections[2], p_rome, map_pt3d(2, 0.08, 0.24, z_off=0.09), mat_white_text)
 
 s3_sub, _ = create_3d_text_badge(
     shot_collections[2], "S3_Sub",
@@ -439,6 +465,7 @@ s4_light = create_point_light(shot_collections[3], "S4_LaserLight", (1.0, 0.8, 0
 
 p_slope = map_pt3d(3, 0.44, 0.23, z_off=0.35)
 s4_lbl_slope, _ = create_3d_text_badge(shot_collections[3], "S4_SlopeLbl", "1.5-3 meters per km", p_slope, size=0.48, mat_txt=mat_gold_text, plate_w=5.2, plate_h=0.75)
+add_3d_pointer(shot_collections[3], p_slope, map_pt3d(3, 0.50, 0.355, z_off=0.09), mat_gold_text)
 
 s4_sub, _ = create_3d_text_badge(
     shot_collections[3], "S4_Sub",
@@ -458,9 +485,11 @@ s5_light = create_point_light(shot_collections[4], "S5_SiphonLight", (0.0, 0.9, 
 
 p_ht = map_pt3d(4, 0.14, 0.34, z_off=0.35)
 create_3d_text_badge(shot_collections[4], "S5_HT", "Header tank", p_ht, size=0.42, mat_txt=mat_white_text, plate_w=3.1, plate_h=0.66)
+add_3d_pointer(shot_collections[4], p_ht, map_pt3d(4, 0.11, 0.47, z_off=0.09), mat_white_text)
 
 p_50m = map_pt3d(4, 0.47, 0.39, z_off=0.35)
 create_3d_text_badge(shot_collections[4], "S5_50M", "50 m (164 ft)", p_50m, size=0.44, mat_txt=mat_cyan_text, plate_w=3.2, plate_h=0.68)
+add_3d_pointer(shot_collections[4], p_50m, map_pt3d(4, 0.45, 0.96, z_off=0.09), mat_cyan_text)
 
 s5_sub, _ = create_3d_text_badge(
     shot_collections[4], "S5_Sub",
@@ -472,7 +501,7 @@ s5_sub, _ = create_3d_text_badge(
 # 6. CAMERA SETUP & FRAME-BY-FRAME 30FPS ANIMATION LOOP
 # ---------------------------------------------------------------------------
 cam_data = bpy.data.cameras.new("MasterCam")
-cam_data.lens = 38.0
+cam_data.lens = 42.0
 cam_data.sensor_width = 36.0
 cam_obj = bpy.data.objects.new("MasterCam", cam_data)
 scene.collection.objects.link(cam_obj)
@@ -490,9 +519,12 @@ def eval_pts(pts, u):
     return pts[i0].lerp(pts[i1], f - i0)
 
 def look_at(obj, target):
-    direction = target - obj.location
-    rot_quat = direction.to_track_quat('-Z', 'Y')
-    obj.rotation_euler = rot_quat.to_euler()
+    dx = target.x - obj.location.x
+    dy = target.y - obj.location.y
+    dz = max(0.1, obj.location.z - target.z)
+    rx = math.atan2(dy, dz)
+    ry = -math.atan2(dx, dz)
+    obj.rotation_euler = Euler((rx, ry, 0.0), 'XYZ')
 
 for f in range(start_frame, end_frame + 1):
     t = (f - 1) / 30.0
@@ -519,7 +551,7 @@ for f in range(start_frame, end_frame + 1):
     e = smoothstep(0.0, 1.0, u)
 
     if active_idx == 0:
-        cam_obj.location = Vector((-0.55 + e * 1.10, -0.30 + e * 0.50, 14.3 - e * 1.45))
+        cam_obj.location = Vector((-0.55 + e * 1.10, -0.30 + e * 0.50, 12.5 - e * 1.35))
         look_at(cam_obj, Vector((0.0 + e * 0.25, 0.0 + e * 0.10, 0.2)))
         scan_x = -8.5 + u * 18.0
         scan_node = diorama_mats[0].node_tree.nodes.get("ScanCenterNode")
@@ -532,7 +564,7 @@ for f in range(start_frame, end_frame + 1):
         s1_light.location = tip + Vector((0, 0, 0.55))
 
     elif active_idx == 1:
-        cam_obj.location = Vector((0.45 - e * 0.90, -0.50 + e * 0.55, 14.2 - e * 1.35))
+        cam_obj.location = Vector((0.45 - e * 0.90, -0.50 + e * 0.55, 12.4 - e * 1.25))
         look_at(cam_obj, Vector((0.15 - e * 0.20, 0.0, 0.15)))
         prog = smoothstep(0.06, 0.88, u)
         s2_c.bevel_factor_end = prog
@@ -549,7 +581,7 @@ for f in range(start_frame, end_frame + 1):
         s2_lbl_pop.data.body = f"{pop_val:,}"
 
     elif active_idx == 2:
-        cam_obj.location = Vector((0.55 - e * 1.15, -0.35 + e * 0.45, 14.2 - e * 1.25))
+        cam_obj.location = Vector((0.55 - e * 1.15, -0.35 + e * 0.45, 12.4 - e * 1.20))
         look_at(cam_obj, Vector((0.15 - e * 0.35, 0.05, 0.20)))
         prog = smoothstep(0.08, 0.90, u)
         s3_c.bevel_factor_end = prog
@@ -558,7 +590,7 @@ for f in range(start_frame, end_frame + 1):
         s3_light.location = tip + Vector((0, 0, 0.55))
 
     elif active_idx == 3:
-        cam_obj.location = Vector((-0.50 + e * 1.05, -0.20 + e * 0.35, 14.3 - e * 1.25))
+        cam_obj.location = Vector((-0.50 + e * 1.05, -0.20 + e * 0.35, 12.5 - e * 1.20))
         look_at(cam_obj, Vector((0.0, 0.08, 0.15)))
         prog = smoothstep(0.05, 0.88, u)
         s4_c.bevel_factor_end = prog
@@ -571,7 +603,7 @@ for f in range(start_frame, end_frame + 1):
             s4_lbl_slope.data.body = "0.09 - 0.17 deg"
 
     elif active_idx == 4:
-        cam_obj.location = Vector((-0.45 + e * 0.90, -0.40 + e * 0.50, 14.2 - e * 1.30))
+        cam_obj.location = Vector((-0.45 + e * 0.90, -0.40 + e * 0.50, 12.4 - e * 1.25))
         look_at(cam_obj, Vector((0.0, -0.05, 0.15)))
         prog = smoothstep(0.06, 0.92, u)
         s5_c.bevel_factor_end = prog
