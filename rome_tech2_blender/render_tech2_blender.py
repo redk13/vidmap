@@ -25,14 +25,14 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 scene = bpy.context.scene
 scene.render.engine = 'CYCLES'
 scene.cycles.device = 'CPU'
-scene.cycles.samples = 20
+scene.cycles.samples = 6
 scene.cycles.use_adaptive_sampling = True
 scene.cycles.adaptive_threshold = 0.02
 # Disable OIDN denoiser so 1080p photorealistic textures stay 100% razor-sharp!
 scene.cycles.use_denoising = False
 scene.cycles.sample_clamp_direct = 3.0
 scene.cycles.sample_clamp_indirect = 1.8
-scene.cycles.max_bounces = 2
+scene.cycles.max_bounces = 1
 scene.cycles.diffuse_bounces = 1
 scene.cycles.glossy_bounces = 1
 scene.cycles.transmission_bounces = 0
@@ -63,15 +63,21 @@ if bg_node:
 # ---------------------------------------------------------------------------
 W_PLANE = 16.0
 H_PLANE = 9.0
-GRID_W = 320
-GRID_H = 180
+GRID_W = 160
+GRID_H = 90
 DISP_SCALES = [1.85, 1.55, 1.75, 1.45, 1.95]
 
 depth_grids = []
 rgb_images = []
 depth_images = []
 
+active_shard_shot = (start_frame - 1) // 120
 for i in range(1, 6):
+    if (i - 1) != active_shard_shot:
+        rgb_images.append(None)
+        depth_images.append(None)
+        depth_grids.append([[0.5] * GRID_W for _ in range(GRID_H)])
+        continue
     rgb_path = os.path.join(asset_dir, f"rgb{i}.jpg")
     dep_path = os.path.join(asset_dir, f"depth{i}.png")
     img_rgb = bpy.data.images.load(rgb_path)
@@ -135,7 +141,14 @@ def map_pt3d(shot_idx, u, v_img, disp_scale=None, z_off=0.08):
 shot_collections = []
 diorama_mats = []
 
+active_shard_shot = (start_frame - 1) // 120
 for s_idx in range(5):
+    if s_idx != active_shard_shot:
+        col = bpy.data.collections.new(f"Shot_{s_idx+1}")
+        scene.collection.children.link(col)
+        shot_collections.append(col)
+        diorama_mats.append(bpy.data.materials.new(f"DummyMat_{s_idx+1}"))
+        continue
     col = bpy.data.collections.new(f"Shot_{s_idx+1}")
     scene.collection.children.link(col)
     shot_collections.append(col)
