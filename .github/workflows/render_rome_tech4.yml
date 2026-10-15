@@ -1,0 +1,38 @@
+name: Render Rome Blender Technique 3 - Calibrated 3D NURBS + Depth Scan + Blender 3D Camera Matrix Typography (20 Shards)
+
+on:
+  push:
+    paths:
+      - 'rome_tech4_blender/**'
+      - '.github/workflows/render_rome_tech4.yml'
+  workflow_dispatch:
+
+jobs:
+  render_tech4_shard:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Blender 4.3.2 & Install Pillow into Blender Python
+        run: |
+          curl -sL https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -xf /tmp/blender.tar.xz -C /tmp
+          /tmp/blender-4.3.2-linux-x64/4.3/python/bin/python3.11 -m pip install -q pillow
+
+      - name: Render 30-frame shard in Blender 4.3.2 (1920x1080 @ 30fps)
+        run: |
+          START=$(( ${{ matrix.shard }} * 30 + 1 ))
+          END=$(( START + 29 ))
+          /tmp/blender-4.3.2-linux-x64/blender -b -P rome_tech4_blender/render_tech4_blender.py -- $START $END rome_ai_3d/assets /tmp/tech4_shard_${{ matrix.shard }}
+
+      - name: Upload shard frames
+        uses: actions/upload-artifact@v4
+        with:
+          name: tech4-shard-${{ matrix.shard }}
+          path: /tmp/tech4_shard_${{ matrix.shard }}/frame_*.jpg
+          retention-days: 1
