@@ -1,0 +1,79 @@
+name: Render Rome 3D Blender Cycles (20-Shard Matrix)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  render_shards:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Official Blender 4.3.2 (with Intel OpenImageDenoise) & FFmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libxkbcommon0 libsm6 libice6 >/dev/null
+          curl -sL https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz | tar -xJ -C /tmp/
+          /tmp/blender-4.3.2-linux-x64/4.3/python/bin/python3.11 -m pip install --quiet Pillow
+
+      - name: Render Cycles Shard ${{ matrix.shard }}
+        run: |
+          TOTAL=450
+          N=20
+          STEP=23
+          START=$(( ${{ matrix.shard }} * STEP ))
+          END=$(( START + STEP ))
+          if [ $END -gt $TOTAL ]; then END=$TOTAL; fi
+          COUNT=$(( END - START ))
+          echo "Rendering Blender 4.3.2 Cycles shard ${{ matrix.shard }}: frames $START .. $END ($COUNT frames)"
+          mkdir -p /tmp/cycles_out
+          /tmp/blender-4.3.2-linux-x64/blender -b -P render_rome_cycles.py -- --shard --start $START --end $END --out-dir /tmp/cycles_out --res 1920x1080 --samples 10
+          ffmpeg -y -framerate 30 -start_number $START -i /tmp/cycles_out/frame_%04d.jpg -frames:v $COUNT -c:v libx264 -preset fast -crf 15 -pix_fmt yuv420p shard_${{ matrix.shard }}.mp4
+
+      - name: Upload Shard Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: shard-${{ matrix.shard }}
+          path: shard_${{ matrix.shard }}.mp4
+          retention-days: 2
+
+  assemble:
+    needs: render_shards
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Download all 20 shards
+        uses: actions/download-artifact@v4
+        with:
+          path: shards_in
+
+      - name: Concatenate 20 Cycles shards & mux master audio
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+          rm -f concat.txt
+          for i in $(seq 0 19); do
+            f="shards_in/shard-${i}/shard_${i}.mp4"
+            if [ ! -f "$f" ]; then
+              echo "Missing shard $i"
+              exit 1
+            fi
+            echo "file '$PWD/$f'" >> concat.txt
+          done
+          ffmpeg -y -f concat -safe 0 -i concat.txt -i assets/rome_15s_master_audio.m4a -map 0:v:0 -map 1:a:0 -c:v copy -c:a copy -movflags +faststart ROME-CYCLES-RAYTRACED-1080P.mp4
+          ls -lh ROME-CYCLES-RAYTRACED-1080P.mp4
+
+      - name: Upload Final Master Video
+        uses: actions/upload-artifact@v4
+        with:
+          name: ROME-CYCLES-RAYTRACED-1080P
+          path: ROME-CYCLES-RAYTRACED-1080P.mp4
+          retention-days: 5
