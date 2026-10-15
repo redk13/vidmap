@@ -1,0 +1,92 @@
+name: Render Rome Technique 2 - Blender 4.3 Image-to-3D (20 Shards)
+
+on:
+  push:
+    paths:
+      - 'rome_tech2_blender/**'
+      - '.github/workflows/render_rome_tech2.yml'
+  workflow_dispatch:
+
+jobs:
+  render_tech2_shard:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download & Extract Blender 4.3.2
+        run: |
+          curl -sL https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -xf /tmp/blender.tar.xz -C /tmp
+
+      - name: Render 30-frame shard in Blender 4.3.2 (1920x1080 @ 30fps)
+        run: |
+          START=$(( ${{ matrix.shard }} * 30 + 1 ))
+          END=$(( START + 29 ))
+          echo "Rendering Blender Tech2 shard ${{ matrix.shard }}: frames $START to $END"
+          /tmp/blender-4.3.2-linux-x64/blender -b -P rome_tech2_blender/render_tech2_blender.py -- $START $END rome_ai_3d/assets /tmp/tech2_shard_${{ matrix.shard }}
+
+      - name: Upload shard frames
+        uses: actions/upload-artifact@v4
+        with:
+          name: tech2-shard-${{ matrix.shard }}
+          path: /tmp/tech2_shard_${{ matrix.shard }}/frame_*.jpg
+          retention-days: 1
+
+  assemble_tech2:
+    needs: render_tech2_shard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all 20 shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tech2-shard-*
+          path: /tmp/all_tech2_frames
+          merge-multiple: true
+
+      - name: Assemble 1080p MP4 (600 frames, 20.0s @ 30fps, CRF 15) + Final QA Sheet
+        run: |
+          COUNT=$(ls -1 /tmp/all_tech2_frames/frame_*.jpg | wc -l)
+          echo "Total frames downloaded: $COUNT"
+          mkdir -p /tmp/final_tech2
+          ffmpeg -y -framerate 30 -start_number 1 -i /tmp/all_tech2_frames/frame_%04d.jpg \
+            -i rome_ai_3d/assets/rome_20s_master_audio.m4a \
+            -c:v libx264 -preset fast -crf 15 -pix_fmt yuv420p \
+            -c:a copy -shortest /tmp/final_tech2/ROME-TECH2-BLENDER-IMAGE3D-1080P.mp4
+          python3 - << 'PYEOF'
+          from PIL import Image, ImageDraw
+          cols, rows = 2, 5
+          tw, th = 640, 360
+          grid = Image.new("RGB", (cols * tw, rows * th), (10, 12, 16))
+          draw = ImageDraw.Draw(grid)
+          frames = [25, 85, 145, 211, 265, 331, 385, 451, 505, 577]
+          labels = [
+              "Tech2 Blender Shot 1A (f0025): 3D Displaced Mesh + Scan", "Tech2 Blender Shot 1B (f0085): 3D NURBS Specus Tube",
+              "Tech2 Blender Shot 2A (f0145): 3D Map + Extruded 3D Text", "Tech2 Blender Shot 2B (f0211): Aqua Marcia 90km 3D Curve",
+              "Tech2 Blender Shot 3A (f0265): 3D Cutaway + 3D Font Badges", "Tech2 Blender Shot 3B (f0331): 3D Cyan Tube + Ray Light",
+              "Tech2 Blender Shot 4A (f0385): 3D Studio + 3D Extruded Text", "Tech2 Blender Shot 4B (f0451): 0.09-0.17 deg 3D Laser",
+              "Tech2 Blender Shot 5A (f0505): 3D Valley + Header Tank 3D", "Tech2 Blender Shot 5B (f0577): 3D U-Siphon NURBS Tube"
+          ]
+          for i, fn in enumerate(frames):
+              im = Image.open(f"/tmp/all_tech2_frames/frame_{fn:04d}.jpg").resize((tw, th), Image.Resampling.LANCZOS)
+              x, y = (i % cols) * tw, (i // cols) * th
+              grid.paste(im, (x, y))
+              draw.rectangle([x + 8, y + 8, x + 490, y + 34], fill=(0, 0, 0))
+              draw.text((x + 14, y + 12), labels[i], fill=(255, 200, 50))
+          grid.save("/tmp/final_tech2/ROME-TECH2-BLENDER-QA-10.jpg", quality=94)
+          PYEOF
+          ls -lh /tmp/final_tech2/
+
+      - name: Upload Final Tech2 Blender Video
+        uses: actions/upload-artifact@v4
+        with:
+          name: ROME-TECH2-BLENDER-IMAGE3D-1080P
+          path: /tmp/final_tech2/*
+          retention-days: 5
