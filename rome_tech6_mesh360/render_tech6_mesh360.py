@@ -151,7 +151,7 @@ def build_volumetric_360_diorama(idx):
     # Give the 3D relief a solid volumetric slab thickness via Solidify modifier
     sol = obj.modifiers.new(name="VolSlab", type='SOLIDIFY')
     sol.thickness = 1.85
-    sol.offset = -1.0
+    sol.offset = 1.0
 
     # Build a dark museum display plinth underneath the 3D diorama block so orbiting reveals a clean 3D pedestal
     bm_base = bmesh.new()
@@ -159,7 +159,7 @@ def build_volumetric_360_diorama(idx):
     for v in bm_base.verts:
         v.co.x *= 14.8
         v.co.y *= 8.4
-        v.co.z = v.co.z * 1.4 - 2.1
+        v.co.z = v.co.z * 0.8 - 2.4
     m_base = bpy.data.meshes.new(f"Plinth_{idx}")
     bm_base.to_mesh(m_base)
     bm_base.free()
@@ -439,7 +439,10 @@ for f in range(start_frame, end_frame + 1):
     ease = u * u * (3.0 - 2.0 * u)
 
     for i, r in roots.items():
-        r.hide_render = (i != active_idx)
+        hide = (i != active_idx)
+        r.hide_render = hide
+        for ch in r.children:
+            ch.hide_render = hide
     for tb in all_tubes:
         tb.hide_render = True
 

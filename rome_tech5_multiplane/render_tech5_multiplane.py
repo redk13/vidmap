@@ -528,7 +528,10 @@ for f in range(start_frame, end_frame + 1):
     ease = u * u * (3.0 - 2.0 * u)
 
     for i, r in roots.items():
-        r.hide_render = (i != active_idx)
+        hide = (i != active_idx)
+        r.hide_render = hide
+        for ch in r.children:
+            ch.hide_render = hide
     for tb in all_tubes:
         tb.hide_render = True
 
