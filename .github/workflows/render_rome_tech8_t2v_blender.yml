@@ -1,0 +1,121 @@
+name: Render Rome Technique 8 (Pure Text-to-Video AI + 20-Shard Blender 4.3.2 3D Tracked)
+
+on:
+  push:
+    paths:
+      - 'rome_tech8_t2v_blender/**'
+      - '.github/workflows/render_rome_tech8_t2v_blender.yml'
+  workflow_dispatch:
+
+jobs:
+  generate_t2v_and_track:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shot: [1, 2, 3, 4, 5]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Python deps (gradio_client, opencv, ffmpeg)
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y ffmpeg
+          pip install -q gradio_client huggingface_hub opencv-python-headless numpy
+
+      - name: Generate Brand-New AI Video from Scratch via Text-to-Video (LTX-Video / T2V-Turbo)
+        run: |
+          python3 rome_tech8_t2v_blender/generate_t2v_clip.py ${{ matrix.shot }} /tmp/t2v_shot_${{ matrix.shot }}.mp4
+
+      - name: Extract Frames & Track 3D Spline via Lucas-Kanade Optical Flow
+        run: |
+          mkdir -p /tmp/t2v_frames
+          python3 rome_tech8_t2v_blender/track_t2v_optical_flow.py ${{ matrix.shot }} /tmp/t2v_shot_${{ matrix.shot }}.mp4 /tmp/t2v_frames /tmp/t2v_frames/tracked_uvs_${{ matrix.shot }}.json
+
+      - name: Upload Tracked T2V Frames
+        uses: actions/upload-artifact@v4
+        with:
+          name: t2v-tracked-shot-${{ matrix.shot }}
+          path: /tmp/t2v_frames/*
+          retention-days: 2
+
+  render_blender_20_shards:
+    needs: generate_t2v_and_track
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { shard: 0,  shot: 1, start: 1,   end: 33  }
+          - { shard: 1,  shot: 1, start: 34,  end: 66  }
+          - { shard: 2,  shot: 1, start: 67,  end: 98  }
+          - { shard: 3,  shot: 1, start: 99,  end: 130 }
+          - { shard: 4,  shot: 2, start: 131, end: 160 }
+          - { shard: 5,  shot: 2, start: 161, end: 190 }
+          - { shard: 6,  shot: 2, start: 191, end: 219 }
+          - { shard: 7,  shot: 2, start: 220, end: 248 }
+          - { shard: 8,  shot: 3, start: 249, end: 275 }
+          - { shard: 9,  shot: 3, start: 276, end: 301 }
+          - { shard: 10, shot: 3, start: 302, end: 327 }
+          - { shard: 11, shot: 3, start: 328, end: 353 }
+          - { shard: 12, shot: 4, start: 354, end: 384 }
+          - { shard: 13, shot: 4, start: 385, end: 414 }
+          - { shard: 14, shot: 4, start: 415, end: 444 }
+          - { shard: 15, shot: 4, start: 445, end: 474 }
+          - { shard: 16, shot: 5, start: 475, end: 506 }
+          - { shard: 17, shot: 5, start: 507, end: 538 }
+          - { shard: 18, shot: 5, start: 539, end: 569 }
+          - { shard: 19, shot: 5, start: 570, end: 600 }
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Tracked T2V Frames for Shot
+        uses: actions/download-artifact@v4
+        with:
+          name: t2v-tracked-shot-${{ matrix.shot }}
+          path: /tmp/t2v_frames
+
+      - name: Install Blender 4.3.2 & Pillow
+        run: |
+          curl --retry 5 --retry-all-errors -sL https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -xf /tmp/blender.tar.xz -C /tmp
+          /tmp/blender-4.3.2-linux-x64/4.3/python/bin/python3.11 -m pip install -q pillow numpy
+
+      - name: Render 30-Frame Shard in Blender 4.3.2
+        run: |
+          mkdir -p /tmp/out_frames
+          /tmp/blender-4.3.2-linux-x64/blender -b -P rome_tech8_t2v_blender/render_t2v_blender.py -- ${{ matrix.shot }} ${{ matrix.start }} ${{ matrix.end }} /tmp/t2v_frames /tmp/t2v_frames/tracked_uvs_${{ matrix.shot }}.json /tmp/out_frames
+
+      - name: Upload Shard Frames
+        uses: actions/upload-artifact@v4
+        with:
+          name: tech8-shard-${{ matrix.shard }}
+          path: /tmp/out_frames/frame_*.jpg
+          retention-days: 2
+
+  assemble_tech8_video:
+    needs: render_blender_20_shards
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all 20 shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tech8-shard-*
+          path: /tmp/all_frames
+          merge-multiple: true
+
+      - name: Encode 6.mp4 with FFmpeg
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y ffmpeg
+          ffmpeg -y -framerate 30 -start_number 1 -i /tmp/all_frames/frame_%04d.jpg -i rome_ai_3d/assets/rome_20s_master_audio.m4a -c:v libx264 -preset fast -crf 20 -pix_fmt yuv420p -c:a copy -shortest /tmp/6.mp4
+
+      - name: Upload final 6.mp4 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-video-8-t2v-blender
+          path: /tmp/6.mp4
+          retention-days: 5
