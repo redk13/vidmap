@@ -8,7 +8,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 6, 7, 8, 19]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     steps:
       - uses: actions/checkout@v4
       - name: Install Blender 4.3.2 & Python Deps
@@ -28,3 +28,28 @@ jobs:
         with:
           name: shard_${{ matrix.shard }}
           path: /tmp/shard_${{ matrix.shard }}.mp4
+
+  assemble_master:
+    needs: render_shards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download All 20 Shards
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/shards
+      - name: Concatenate 20 Shards + Mux 7m07s Master Audio
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          rm -f /tmp/concat.txt
+          for i in $(seq 0 19); do
+            echo "file '/tmp/shards/shard_${i}/shard_${i}.mp4'" >> /tmp/concat.txt
+          done
+          ffmpeg -y -f concat -safe 0 -i /tmp/concat.txt -i sr71_doc/vo/master_audio.mp3 \
+            -c:v copy -c:a aac -b:a 192k -shortest /tmp/SR71_Blackbird_PrimalSpace_V2_1080p.mp4
+          ls -lh /tmp/SR71_Blackbird_PrimalSpace_V2_1080p.mp4
+      - name: Upload Final 1080p V2 Masterpiece Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SR71_Blackbird_PrimalSpace_V2_1080p
+          path: /tmp/SR71_Blackbird_PrimalSpace_V2_1080p.mp4
