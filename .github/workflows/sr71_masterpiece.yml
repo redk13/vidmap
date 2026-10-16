@@ -3,53 +3,110 @@ on:
   workflow_dispatch:
 
 jobs:
-  render_shards:
+  generate_wan_and_track:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]
+        shot: [1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@v4
-      - name: Install Blender 4.3.2 & Python Deps
+      - name: Install Python Deps
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg libgl1 libxi6 libxrender1 libxkbcommon0 libsm6
-          pip install -q numpy opencv-python-headless pillow
-          wget -q https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz -O /tmp/blender.tar.xz
-          tar -xf /tmp/blender.tar.xz -C /tmp/
-      - name: Render Shard ${{ matrix.shard }}
-        env:
-          BLENDER_BIN: /tmp/blender-4.3.2-linux-x64/blender
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          pip install -q gradio_client huggingface_hub opencv-python-headless numpy
+      - name: Generate Wan 2.2 Video, Depth-Anything-V2 & Track Spline (Shot ${{ matrix.shot }})
         run: |
-          python3 sr71_doc/render_sr71_shard.py ${{ matrix.shard }} /tmp/shard_${{ matrix.shard }}.mp4
-      - name: Upload Shard Artifact
+          mkdir -p /tmp/wan_frames_${{ matrix.shot }}
+          python3 sr71_doc/tech9_phase1/generate_wan_and_track.py ${{ matrix.shot }} /tmp/wan_frames_${{ matrix.shot }} /tmp/wan_frames_${{ matrix.shot }}/tracked_uvs_${{ matrix.shot }}.json
+      - name: Upload Tracked Shot Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: shard_${{ matrix.shard }}
-          path: /tmp/shard_${{ matrix.shard }}.mp4
+          name: sr71-wan-shot-${{ matrix.shot }}
+          path: /tmp/wan_frames_${{ matrix.shot }}/*
+          retention-days: 2
 
-  assemble_master:
-    needs: render_shards
+  render_blender_30_shards:
+    needs: generate_wan_and_track
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { shard: 0,  shot: 1, start: 1,   end: 30  }
+          - { shard: 1,  shot: 1, start: 31,  end: 60  }
+          - { shard: 2,  shot: 1, start: 61,  end: 90  }
+          - { shard: 3,  shot: 1, start: 91,  end: 120 }
+          - { shard: 4,  shot: 1, start: 121, end: 150 }
+          - { shard: 5,  shot: 2, start: 151, end: 180 }
+          - { shard: 6,  shot: 2, start: 181, end: 210 }
+          - { shard: 7,  shot: 2, start: 211, end: 240 }
+          - { shard: 8,  shot: 2, start: 241, end: 270 }
+          - { shard: 9,  shot: 2, start: 271, end: 300 }
+          - { shard: 10, shot: 3, start: 301, end: 330 }
+          - { shard: 11, shot: 3, start: 331, end: 360 }
+          - { shard: 12, shot: 3, start: 361, end: 390 }
+          - { shard: 13, shot: 3, start: 391, end: 420 }
+          - { shard: 14, shot: 3, start: 421, end: 450 }
+          - { shard: 15, shot: 4, start: 451, end: 480 }
+          - { shard: 16, shot: 4, start: 481, end: 510 }
+          - { shard: 17, shot: 4, start: 511, end: 540 }
+          - { shard: 18, shot: 4, start: 541, end: 570 }
+          - { shard: 19, shot: 4, start: 571, end: 600 }
+          - { shard: 20, shot: 5, start: 601, end: 630 }
+          - { shard: 21, shot: 5, start: 631, end: 660 }
+          - { shard: 22, shot: 5, start: 661, end: 690 }
+          - { shard: 23, shot: 5, start: 691, end: 720 }
+          - { shard: 24, shot: 5, start: 721, end: 750 }
+          - { shard: 25, shot: 6, start: 751, end: 780 }
+          - { shard: 26, shot: 6, start: 781, end: 810 }
+          - { shard: 27, shot: 6, start: 811, end: 840 }
+          - { shard: 28, shot: 6, start: 841, end: 870 }
+          - { shard: 29, shot: 6, start: 871, end: 900 }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Tracked Wan Frames (Shots 1..5)
+        if: matrix.shot != 6
+        uses: actions/download-artifact@v4
+        with:
+          name: sr71-wan-shot-${{ matrix.shot }}
+          path: /tmp/wan_frames
+      - name: Install Blender 4.3.2 & Pillow
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends libxkbcommon0 libgl1 libxi6 libxrender1 libsm6
+          wget -q https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz -O /tmp/blender.tar.xz
+          tar -xf /tmp/blender.tar.xz -C /tmp/
+          /tmp/blender-4.3.2-linux-x64/4.3/python/bin/python3.11 -m pip install -q pillow numpy
+      - name: Render 30 Native 30fps Frames in Blender 4.3.2 (Shard ${{ matrix.shard }})
+        run: |
+          mkdir -p /tmp/out_frames /tmp/wan_frames
+          /tmp/blender-4.3.2-linux-x64/blender -b -P sr71_doc/tech9_phase1/render_sr71_tech9_blender.py -- ${{ matrix.shot }} ${{ matrix.start }} ${{ matrix.end }} /tmp/wan_frames /tmp/wan_frames/tracked_uvs_${{ matrix.shot }}.json /tmp/out_frames
+      - name: Upload Shard Frames
+        uses: actions/upload-artifact@v4
+        with:
+          name: sr71-tech9-shard-${{ matrix.shard }}
+          path: /tmp/out_frames/frame_*.jpg
+          retention-days: 2
+
+  assemble_phase1_video:
+    needs: render_blender_30_shards
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Download All 40 Shards
+      - name: Download All 30 Shards (900 Native 1080p Frames)
         uses: actions/download-artifact@v4
         with:
-          path: /tmp/shards
-      - name: Concatenate 40 Shards + Mux 7m07s Master Audio
+          pattern: sr71-tech9-shard-*
+          path: /tmp/all_frames
+          merge-multiple: true
+      - name: Encode 30s 1080p Masterpiece Proof MP4 with FFmpeg
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-          rm -f /tmp/concat.txt
-          for i in $(seq 0 39); do
-            echo "file '/tmp/shards/shard_${i}/shard_${i}.mp4'" >> /tmp/concat.txt
-          done
-          ffmpeg -y -f concat -safe 0 -i /tmp/concat.txt -i sr71_doc/vo/master_audio.mp3 \
-            -c:v copy -c:a aac -b:a 192k -shortest /tmp/SR71_Blackbird_PrimalSpace_V3_1080p.mp4
-          ls -lh /tmp/SR71_Blackbird_PrimalSpace_V3_1080p.mp4
-      - name: Upload Final 1080p V3 Masterpiece Artifact
+          ffmpeg -y -framerate 30 -start_number 1 -i /tmp/all_frames/frame_%04d.jpg -ss 0 -t 30 -i sr71_doc/vo/master_audio.mp3 \
+            -c:v libx264 -preset slow -crf 15 -pix_fmt yuv420p -c:a aac -b:a 192k -shortest /tmp/SR71_Phase1_Tech9_Masterpiece_1080p.mp4
+          ls -lh /tmp/SR71_Phase1_Tech9_Masterpiece_1080p.mp4
+      - name: Upload Phase 1 Masterpiece Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SR71_Blackbird_PrimalSpace_V3_1080p
-          path: /tmp/SR71_Blackbird_PrimalSpace_V3_1080p.mp4
+          name: SR71_Phase1_Tech9_Masterpiece_1080p
+          path: /tmp/SR71_Phase1_Tech9_Masterpiece_1080p.mp4
