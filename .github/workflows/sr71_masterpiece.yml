@@ -24,7 +24,7 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends libxkbcommon0 libgl1 libxi6 libxrender1 libsm6
           wget -q https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz -O /tmp/blender.tar.xz
           tar -xf /tmp/blender.tar.xz -C /tmp/
-      - name: Render Native 30fps Denoised CAD Sequence (Seq ${{ matrix.seq }}: ${{ matrix.start }}..${{ matrix.end }})
+      - name: Render Native 30fps Denoised CAD Sequence (Seq ${{ matrix.seq }} - ${{ matrix.start }}..${{ matrix.end }})
         run: |
           mkdir -p /tmp/cad_out
           /tmp/blender-4.3.2-linux-x64/blender -b -P sr71_doc/full_masterpiece/render_native_cad_seq.py -- ${{ matrix.seq }} ${{ matrix.start }} ${{ matrix.end }} /tmp/cad_out
