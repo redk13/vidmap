@@ -1,0 +1,69 @@
+{
+  "total_duration_sec": 426.99,
+  "chapters": [
+    {
+      "chapter": 1,
+      "file": "/home/user/sr71_doc/vo/ch01.mp3",
+      "start_sec": 0.0,
+      "speech_end_sec": 52.45,
+      "end_sec": 53.25,
+      "duration_sec": 53.25
+    },
+    {
+      "chapter": 2,
+      "file": "/home/user/sr71_doc/vo/ch02.mp3",
+      "start_sec": 53.25,
+      "speech_end_sec": 103.07,
+      "end_sec": 103.87,
+      "duration_sec": 50.62
+    },
+    {
+      "chapter": 3,
+      "file": "/home/user/sr71_doc/vo/ch03.mp3",
+      "start_sec": 103.87,
+      "speech_end_sec": 163.04,
+      "end_sec": 163.84,
+      "duration_sec": 59.97
+    },
+    {
+      "chapter": 4,
+      "file": "/home/user/sr71_doc/vo/ch04.mp3",
+      "start_sec": 163.84,
+      "speech_end_sec": 215.59,
+      "end_sec": 216.39,
+      "duration_sec": 52.55
+    },
+    {
+      "chapter": 5,
+      "file": "/home/user/sr71_doc/vo/ch05.mp3",
+      "start_sec": 216.39,
+      "speech_end_sec": 268.63,
+      "end_sec": 269.43,
+      "duration_sec": 53.04
+    },
+    {
+      "chapter": 6,
+      "file": "/home/user/sr71_doc/vo/ch06.mp3",
+      "start_sec": 269.43,
+      "speech_end_sec": 323.4,
+      "end_sec": 324.2,
+      "duration_sec": 54.77
+    },
+    {
+      "chapter": 7,
+      "file": "/home/user/sr71_doc/vo/ch07.mp3",
+      "start_sec": 324.2,
+      "speech_end_sec": 374.77,
+      "end_sec": 375.57,
+      "duration_sec": 51.37
+    },
+    {
+      "chapter": 8,
+      "file": "/home/user/sr71_doc/vo/ch08.mp3",
+      "start_sec": 375.57,
+      "speech_end_sec": 425.49,
+      "end_sec": 426.99,
+      "duration_sec": 51.42
+    }
+  ]
+}
