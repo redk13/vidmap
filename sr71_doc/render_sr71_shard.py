@@ -92,13 +92,13 @@ ORDERED_40 = [
     # Ch 4 (15..19)
     {"id": 15, "type": "studio_sr71",  "big": "+3.5 INCHES", "sub": "THERMAL EXPANSION", "call": ((980, 510), (1050, 310), (1120, 310), "CORRUGATED WING SKINS")},
     {"id": 16, "type": "gate_43",      "img": "cockpit.jpg", "zoom": (1.0, 1.06)},
-    {"id": 17, "type": "bl_xray_clean","big": "6 FUEL TANKS", "sub": "SEAL ABOVE MACH 2.0"},
+    {"id": 17, "type": "studio_sr71",  "big": "6 FUEL TANKS", "sub": "SEAL ABOVE MACH 2.0", "call": ((860, 560), (920, 320), (990, 320), "6 FUSELAGE & WING TANKS")},
     {"id": 18, "type": "vid_full",     "vid": "v_refuel.webm", "ss": 2.0, "label": "KC-135Q REFUELING"},
     {"id": 19, "type": "vid_full",     "vid": "v_refuel.webm", "ss": 13.0, "label": ""},
 
     # Ch 5 (20..24)
     {"id": 20, "type": "ford_chart",   "pts": [("100°F", "JET-A FLASHPOINT", 540, 680), ("140°F", "JP-7 FLASHPOINT", 1010, 440), ("600°F", "HEAT SINK COOLANT", 1360, 290)], "ticks": ["GROUND", "MACH 2.0", "MACH 3.2"]},
-    {"id": 21, "type": "bl_xray_clean","big": "JP-7 COOLANT", "sub": "FUEL ABSORBS SKIN HEAT"},
+    {"id": 21, "type": "studio_sr71_heat", "big": "JP-7 COOLANT", "sub": "FUEL ABSORBS SKIN HEAT", "call": ((650, 640), (710, 380), (780, 380), "JP-7 HYDRAULIC & SKIN COOLANT")},
     {"id": 22, "type": "studio_j58",   "call1": "TEB PYROPHORIC IGNITER", "call2": "16 GREEN FIRE SHOTS"},
     {"id": 23, "type": "gate_43",      "img": "j58_fire.jpg", "zoom": (1.0, 1.07)},
     {"id": 24, "type": "trellis_gs",   "vid": "ai3d_models/ai3d_job_1/j58_trellis_gaussian360.mp4", "big": "32,500 LBF", "sub": "PRATT & WHITNEY J58"},
@@ -347,38 +347,66 @@ def render_scene_frames(scene, n_frames, work_dir, write_frame_fn):
     elif stype == "trellis_gs":
         vp = os.path.join(ROOT, scene["vid"])
         cap = cv2.VideoCapture(vp)
-        v_tot = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 100
         frames_gs = []
         while True:
             ret, fr = cap.read()
             if not ret: break
-            # Left half of TRELLIS video is the 3D Gaussian Radiance Field, right half is the Normal Map
-            frames_gs.append(fr)
+            rh, rw = fr.shape[:2]
+            # Extract ONLY the left RGB 3D Gaussian Splatting half (never the right-hand grey normal map debug box!)
+            rgb_half = fr[:, :rw//2]
+            # Trim 12% margin around the 512x512 turntable so the 3D model fills the studio heroically
+            m = int(rh * 0.11)
+            crop_gs = rgb_half[m:rh-m, m:rh-m]
+            frames_gs.append(cv2.resize(crop_gs, (1040, 1040), interpolation=cv2.INTER_CUBIC).astype(np.float32))
         cap.release()
+        yy, xx = np.mgrid[0:H, 0:W]
+        sh_d = np.sqrt(((xx - W*0.53)/(W*0.26))**2 + ((yy - H*0.66)/(H*0.08))**2)
+        sh_m = (np.clip(1.0 - sh_d, 0.0, 1.0) ** 1.8)[:, :, None]
+        base_bgr = cv2.cvtColor(STUDIO_BG_DARK.copy(), cv2.COLOR_RGB2BGR).astype(np.float32) * (1.0 - 0.58 * sh_m)
+        x0, y0 = (W - 1040)//2 + 50, (H - 1040)//2 + 20
+        is_sr71 = "sr71" in scene["vid"]
         for f_i in range(n_frames):
             u = f_i / max(1, n_frames - 1)
-            raw = frames_gs[f_i % len(frames_gs)]
-            rh, rw = raw.shape[:2]
-            # Place Gaussian Splatting & Normal Map cleanly on the dark studio floor
-            canvas = STUDIO_BG_DARK.copy()
-            im = Image.fromarray(canvas)
+            gs_up = frames_gs[f_i % len(frames_gs)]
+            lum = 0.114*gs_up[:,:,0] + 0.587*gs_up[:,:,1] + 0.299*gs_up[:,:,2]
+            alpha = cv2.GaussianBlur(np.clip((lum - 8.0) / 22.0, 0.0, 1.0), (5, 5), 0)[:, :, None]
+            canvas = base_bgr.copy()
+            roi = canvas[y0:y0+1040, x0:x0+1040]
+            gain = 1.32 if is_sr71 else 1.22
+            canvas[y0:y0+1040, x0:x0+1040] = roi * (1.0 - alpha) + gs_up * gain * alpha
+            im = Image.fromarray(cv2.cvtColor(np.clip(canvas, 0, 255).astype(np.uint8), cv2.COLOR_BGR2RGB))
             dr = ImageDraw.Draw(im)
             draw_tracked_text(dr, (150, 96),  scene["big"], f_bebas(132), (215, 222, 235), tracking=8)
             draw_tracked_text(dr, (156, 232), scene["sub"], f_bebas(54),  (135, 142, 155), tracking=6)
-            canvas = cv2.cvtColor(np.array(im), cv2.COLOR_RGB2BGR)
-            rs = cv2.resize(raw, (1360, 680), interpolation=cv2.INTER_CUBIC)
-            canvas[310:990, 280:1640] = rs
-            write_frame_fn(canvas)
+            if u > 0.18:
+                if is_sr71:
+                    draw_frameless_callout(dr, (1010, 560), (1110, 330), (1190, 330), "CORRUGATED TITANIUM CHINES")
+                else:
+                    draw_frameless_callout(dr, (980, 520), (1080, 310), (1160, 310), "6 BYPASS BLEED TUBES")
+            write_frame_fn(cv2.cvtColor(np.array(im), cv2.COLOR_RGB2BGR))
 
     elif stype == "hunyuan_3d":
         jdir = os.path.join(ROOT, "ai3d_models", scene["job"])
-        im0 = cv2.imread(os.path.join(jdir, "render_angle_0.png"))
-        im1 = cv2.imread(os.path.join(jdir, "render_angle_1.png"))
-        im0 = cv2.resize(im0, (W, H), interpolation=cv2.INTER_CUBIC)
-        im1 = cv2.resize(im1, (W, H), interpolation=cv2.INTER_CUBIC)
+        yy, xx = np.mgrid[0:H, 0:W]
+        sh_d2 = np.sqrt(((xx - W*0.50)/(W*0.30))**2 + ((yy - H*0.72)/(H*0.12))**2)
+        sh_m2 = (np.clip(1.0 - sh_d2, 0.0, 1.0) ** 1.6)[:, :, None]
+        studio_bgr = cv2.cvtColor(STUDIO_BG_DARK.copy(), cv2.COLOR_RGB2BGR).astype(np.float32) * (1.0 - 0.55 * sh_m2)
+        comp_angles = []
+        for fn in ("render_angle_0.png", "render_angle_1.png"):
+            hy_raw = cv2.imread(os.path.join(jdir, fn))
+            hy_rs = cv2.resize(hy_raw, (W, H), interpolation=cv2.INTER_CUBIC).astype(np.float32)
+            bg_top = hy_rs[20, W-20]
+            bg_bot = hy_rs[H-10, W//2]
+            dist_top = np.linalg.norm(hy_rs - bg_top[None, None, :], axis=2)
+            dist_bot = np.linalg.norm(hy_rs - bg_bot[None, None, :], axis=2)
+            fg_mask = np.clip((np.minimum(dist_top, dist_bot) - 10.0) / 18.0, 0.0, 1.0)
+            fg_mask[:320, :800] = 0.0
+            fg_mask = cv2.GaussianBlur(fg_mask, (7, 7), 0)[:, :, None]
+            comp = np.clip(studio_bgr * (1.0 - fg_mask) + hy_rs * fg_mask, 0, 255).astype(np.uint8)
+            comp_angles.append(comp)
         for f_i in range(n_frames):
             u = f_i / max(1, n_frames - 1)
-            base = im0 if u < 0.5 else im1
+            base = comp_angles[0] if u < 0.5 else comp_angles[1]
             sub_u = (u * 2.0) if u < 0.5 else ((u - 0.5) * 2.0)
             sc = 1.0 + 0.045 * sub_u
             cw, ch = int(W / sc), int(H / sc)
@@ -388,11 +416,14 @@ def render_scene_frames(scene, n_frames, work_dir, write_frame_fn):
             dr = ImageDraw.Draw(im)
             draw_tracked_text(dr, (150, 96),  scene["big"], f_bebas(132), (230, 235, 245), tracking=8)
             draw_tracked_text(dr, (156, 232), scene["sub"], f_bebas(54),  (150, 160, 175), tracking=6)
+            if u > 0.18:
+                lbl = "BETA-120 TITANIUM ALLOY" if scene["job"] == "ai3d_job_2" else "476,744 HIGH-POLY FACES"
+                draw_frameless_callout(dr, (980, 560), (1080, 320), (1160, 320), lbl)
             write_frame_fn(cv2.cvtColor(np.array(im), cv2.COLOR_RGB2BGR))
 
     elif stype in ("bl_j58_clean", "bl_xray_clean"):
         bl_d = os.path.join(work_dir, f"bl_{scene['id']}")
-        n_kf = 16
+        n_kf = 10
         if stype == "bl_j58_clean":
             render_j58_cutaway_studio(bl_d, n_kf=n_kf)
         else:
@@ -532,18 +563,30 @@ def render_scene_frames(scene, n_frames, work_dir, write_frame_fn):
         svg_im = cv2.imread(os.path.join(ROOT, "archival_photos", "j58_airflow_official.png"))
         sh, sw = svg_im.shape[:2]
         stg = scene.get("mach_stage", 3)
-        y0 = int(sh * (stg * 0.20)); y1 = min(sh, int(sh * ((stg + 1) * 0.20)))
-        crop_rs = cv2.resize(svg_im[y0:y1, :], (1640, 500), interpolation=cv2.INTER_CUBIC)
+        sy0 = int(sh * (stg * 0.20)); sy1 = min(sh, int(sh * ((stg + 1) * 0.20)))
+        crop_rs = cv2.resize(svg_im[sy0:sy1, :], (1640, 500), interpolation=cv2.INTER_CUBIC)
+        bg_col = crop_rs[5, 5].astype(np.float32)
+        diff = np.linalg.norm(crop_rs.astype(np.float32) - bg_col[None, None, :], axis=2)
+        diag_alpha = np.clip((diff - 12.0) / 28.0, 0.0, 1.0)[:, :, None]
+        diag_fg = crop_rs.astype(np.float32)
+        lum_d = 0.114*diag_fg[:,:,0] + 0.587*diag_fg[:,:,1] + 0.299*diag_fg[:,:,2]
+        dark_ink = (lum_d < 90.0) & (diag_alpha[:, :, 0] > 0.2)
+        diag_fg[dark_ink] = [235, 238, 245]
+        base_c = cv2.cvtColor(STUDIO_BG_DARK.copy(), cv2.COLOR_RGB2BGR).astype(np.float32)
+        roi3 = base_c[380:880, 140:1780]
+        base_c[380:880, 140:1780] = roi3 * (1.0 - diag_alpha) + diag_fg * diag_alpha
+        base_u8 = np.clip(base_c, 0, 255).astype(np.uint8)
         for f_i in range(n_frames):
             u = f_i / max(1, n_frames - 1)
-            canvas = STUDIO_BG_DARK.copy()
-            im = Image.fromarray(canvas)
+            sc = 1.0 + 0.03 * u
+            cw, ch = int(W / sc), int(H / sc)
+            x0, y0 = (W - cw)//2, (H - ch)//2
+            fr = cv2.resize(base_u8[y0:y0+ch, x0:x0+cw], (W, H), interpolation=cv2.INTER_LINEAR)
+            im = Image.fromarray(cv2.cvtColor(fr, cv2.COLOR_BGR2RGB))
             dr = ImageDraw.Draw(im)
-            draw_tracked_text(dr, (140, 86),  scene["big"], f_bebas(124), (235, 240, 248), tracking=8)
-            draw_tracked_text(dr, (146, 214), scene["sub"], f_bebas(52),  (145, 155, 170), tracking=6)
-            fr = cv2.cvtColor(np.array(im), cv2.COLOR_RGB2BGR)
-            fr[380:880, 140:1780] = crop_rs
-            write_frame_fn(fr)
+            draw_tracked_text(dr, (150, 96),  scene["big"], f_bebas(132), (235, 240, 248), tracking=8)
+            draw_tracked_text(dr, (156, 232), scene["sub"], f_bebas(54),  (145, 155, 170), tracking=6)
+            write_frame_fn(cv2.cvtColor(np.array(im), cv2.COLOR_RGB2BGR))
 
 def render_shard(shard_idx, out_mp4):
     shard_dur = TOTAL_DUR / float(N_SHARDS)
