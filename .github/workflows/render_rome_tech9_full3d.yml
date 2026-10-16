@@ -1,0 +1,85 @@
+name: Render Rome Technique 9 (Wan 2.2 Video + Full Blender 4.3.2 3D Relighting & Quality Enhancement)
+
+on:
+  push:
+    paths:
+      - 'rome_tech9_full3d/**'
+      - '.github/workflows/render_rome_tech9_full3d.yml'
+  workflow_dispatch:
+
+jobs:
+  render_full3d_20_shards:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { shard: 0,  shot: 1, s_start: 1,   start: 1,   end: 33  }
+          - { shard: 1,  shot: 1, s_start: 1,   start: 34,  end: 66  }
+          - { shard: 2,  shot: 1, s_start: 1,   start: 67,  end: 98  }
+          - { shard: 3,  shot: 1, s_start: 1,   start: 99,  end: 130 }
+          - { shard: 4,  shot: 2, s_start: 131, start: 131, end: 160 }
+          - { shard: 5,  shot: 2, s_start: 131, start: 161, end: 190 }
+          - { shard: 6,  shot: 2, s_start: 131, start: 191, end: 219 }
+          - { shard: 7,  shot: 2, s_start: 131, start: 220, end: 248 }
+          - { shard: 8,  shot: 3, s_start: 249, start: 249, end: 275 }
+          - { shard: 9,  shot: 3, s_start: 249, start: 276, end: 301 }
+          - { shard: 10, shot: 3, s_start: 249, start: 302, end: 327 }
+          - { shard: 11, shot: 3, s_start: 249, start: 328, end: 353 }
+          - { shard: 12, shot: 4, s_start: 354, start: 354, end: 384 }
+          - { shard: 13, shot: 4, s_start: 354, start: 385, end: 414 }
+          - { shard: 14, shot: 4, s_start: 354, start: 415, end: 444 }
+          - { shard: 15, shot: 4, s_start: 354, start: 445, end: 474 }
+          - { shard: 16, shot: 5, s_start: 475, start: 475, end: 506 }
+          - { shard: 17, shot: 5, s_start: 475, start: 507, end: 538 }
+          - { shard: 18, shot: 5, s_start: 475, start: 539, end: 569 }
+          - { shard: 19, shot: 5, s_start: 475, start: 570, end: 600 }
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract Wan 2.2 Shot Frames & Install Blender 4.3.2
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y ffmpeg
+          mkdir -p /tmp/wan_frames /tmp/out_frames
+          ffmpeg -y -i rome_tech9_full3d/wan_1080p_shot_${{ matrix.shot }}.mp4 -start_number ${{ matrix.s_start }} -q:v 2 /tmp/wan_frames/wan_frame_%04d.jpg
+          curl --retry 5 --retry-all-errors -sL https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -xf /tmp/blender.tar.xz -C /tmp
+          /tmp/blender-4.3.2-linux-x64/4.3/python/bin/python3.11 -m pip install -q pillow
+
+      - name: Render 30-Frame Shard in Blender 4.3.2 (Full 3D Mesh + Bump Normal Map + Compositor Mastering)
+        run: |
+          /tmp/blender-4.3.2-linux-x64/blender -b -P rome_tech9_full3d/render_full3d_blender.py -- ${{ matrix.shot }} ${{ matrix.start }} ${{ matrix.end }} /tmp/wan_frames rome_tech9_full3d/tracked_uvs_${{ matrix.shot }}.json /tmp/out_frames
+
+      - name: Upload Shard Frames
+        uses: actions/upload-artifact@v4
+        with:
+          name: tech9-shard-${{ matrix.shard }}
+          path: /tmp/out_frames/frame_*.jpg
+          retention-days: 2
+
+  assemble_tech9_video:
+    needs: render_full3d_20_shards
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all 20 shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tech9-shard-*
+          path: /tmp/all_frames
+          merge-multiple: true
+
+      - name: Encode 7.mp4 with FFmpeg
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y ffmpeg
+          ffmpeg -y -framerate 30 -start_number 1 -i /tmp/all_frames/frame_%04d.jpg -i rome_ai_3d/assets/rome_20s_master_audio.m4a -c:v libx264 -preset fast -crf 20 -pix_fmt yuv420p -c:a copy -shortest /tmp/7.mp4
+
+      - name: Upload final 7.mp4 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-video-9-wan-full3d-blender
+          path: /tmp/7.mp4
+          retention-days: 5
