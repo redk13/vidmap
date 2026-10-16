@@ -1,11 +1,11 @@
 import bpy, sys, os, math, json
-from mathutils import Vector, Euler
+from mathutils import Vector
 from bpy_extras.object_utils import world_to_camera_view
 
 argv = sys.argv
 args = argv[argv.index("--") + 1:] if "--" in argv else []
-seq_id = int(args[0])       # 1, 2, 3, or 4
-f_start = int(args[1])      # 1..75 or 76..150
+seq_id  = int(args[0])
+f_start = int(args[1])
 f_end   = int(args[2])
 out_dir = os.path.abspath(args[3])
 os.makedirs(out_dir, exist_ok=True)
@@ -17,9 +17,11 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 scn = bpy.context.scene
 scn.render.engine = 'CYCLES'
 scn.cycles.device = 'CPU'
-scn.cycles.samples = 14
-scn.cycles.max_bounces = 3
-scn.cycles.transparent_max_bounces = 6
+scn.cycles.samples = 6
+scn.cycles.max_bounces = 1
+scn.cycles.diffuse_bounces = 1
+scn.cycles.glossy_bounces = 1
+scn.cycles.transparent_max_bounces = 1
 scn.cycles.use_denoising = True
 scn.render.resolution_x = 1920
 scn.render.resolution_y = 1080
@@ -57,57 +59,69 @@ bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 scan_nodes = []
 wire_col = (0.25, 0.86, 1.0, 1.0) if seq_id in [1, 3] else (1.0, 0.72, 0.18, 1.0)
 
-for o in objs:
-    for m in o.data.materials:
-        if not m or not m.use_nodes: continue
-        nt = m.node_tree
-        bsdf = nt.nodes.get("Principled BSDF")
-        out_n = nt.nodes.get("Material Output")
-        if not bsdf or not out_n: continue
-        if seq_id == 4:
-            bsdf.inputs["Base Color"].default_value = (0.58, 0.62, 0.68, 1.0)
-            bsdf.inputs["Metallic"].default_value = 0.85
-            bsdf.inputs["Roughness"].default_value = 0.26
-        elif "texture" in m.name.lower() or "defaultwhite" == m.name.lower():
-            bsdf.inputs["Metallic"].default_value = 0.52
-            bsdf.inputs["Roughness"].default_value = 0.34
-        else:
-            continue
+# Iterate bpy.data.materials ONCE (never duplicate nodes across shared materials!) and disconnect slow alpha links
+for m in bpy.data.materials:
+    if not m or not m.use_nodes: continue
+    nt = m.node_tree
+    bsdf = nt.nodes.get("Principled BSDF")
+    out_n = nt.nodes.get("Material Output")
+    if not bsdf or not out_n: continue
 
-        tex_coord = nt.nodes.new("ShaderNodeTexCoord")
-        sep_xyz = nt.nodes.new("ShaderNodeSeparateXYZ")
-        nt.links.new(tex_coord.outputs["Object"], sep_xyz.inputs["Vector"])
+    for l in list(nt.links):
+        if l.to_socket == bsdf.inputs.get("Alpha"):
+            nt.links.remove(l)
+    if "Alpha" in bsdf.inputs:
+        bsdf.inputs["Alpha"].default_value = 1.0
 
-        sub_n = nt.nodes.new("ShaderNodeMath"); sub_n.operation = 'SUBTRACT'; sub_n.inputs[1].default_value = -3.5
-        scan_nodes.append(sub_n)
-        abs_n = nt.nodes.new("ShaderNodeMath"); abs_n.operation = 'ABSOLUTE'
-        map_n = nt.nodes.new("ShaderNodeMapRange")
-        map_n.inputs["From Min"].default_value = 0.0
-        map_n.inputs["From Max"].default_value = 1.45
-        map_n.inputs["To Min"].default_value = 1.0
-        map_n.inputs["To Max"].default_value = 0.0
+    if seq_id == 4:
+        bsdf.inputs["Base Color"].default_value = (0.58, 0.62, 0.68, 1.0)
+        bsdf.inputs["Metallic"].default_value = 0.85
+        bsdf.inputs["Roughness"].default_value = 0.26
+    elif "transparent" in m.name.lower():
+        bsdf.inputs["Base Color"].default_value = (0.08, 0.15, 0.22, 1.0)
+        bsdf.inputs["Metallic"].default_value = 0.88
+        bsdf.inputs["Roughness"].default_value = 0.08
+        continue
+    elif "texture" in m.name.lower() or "defaultwhite" == m.name.lower():
+        bsdf.inputs["Metallic"].default_value = 0.52
+        bsdf.inputs["Roughness"].default_value = 0.34
+    else:
+        continue
 
-        wire_n = nt.nodes.new("ShaderNodeWireframe")
-        wire_n.use_pixel_size = True
-        wire_n.inputs["Size"].default_value = 1.15
+    tex_coord = nt.nodes.new("ShaderNodeTexCoord")
+    sep_xyz = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(tex_coord.outputs["Object"], sep_xyz.inputs["Vector"])
 
-        mul_n = nt.nodes.new("ShaderNodeMath"); mul_n.operation = 'MULTIPLY'
-        axis_out = sep_xyz.outputs["Y"] if seq_id in [1, 2, 3] else sep_xyz.outputs["X"]
-        nt.links.new(axis_out, sub_n.inputs[0])
-        nt.links.new(sub_n.outputs["Value"], abs_n.inputs[0])
-        nt.links.new(abs_n.outputs["Value"], map_n.inputs["Value"])
-        nt.links.new(map_n.outputs["Result"], mul_n.inputs[0])
-        nt.links.new(wire_n.outputs["Fac"], mul_n.inputs[1])
+    sub_n = nt.nodes.new("ShaderNodeMath"); sub_n.operation = 'SUBTRACT'; sub_n.inputs[1].default_value = -3.5
+    scan_nodes.append(sub_n)
+    abs_n = nt.nodes.new("ShaderNodeMath"); abs_n.operation = 'ABSOLUTE'
+    map_n = nt.nodes.new("ShaderNodeMapRange")
+    map_n.inputs["From Min"].default_value = 0.0
+    map_n.inputs["From Max"].default_value = 1.45
+    map_n.inputs["To Min"].default_value = 1.0
+    map_n.inputs["To Max"].default_value = 0.0
 
-        emit_n = nt.nodes.new("ShaderNodeEmission")
-        emit_n.inputs["Color"].default_value = wire_col
-        emit_n.inputs["Strength"].default_value = 2.6
+    wire_n = nt.nodes.new("ShaderNodeWireframe")
+    wire_n.use_pixel_size = True
+    wire_n.inputs["Size"].default_value = 1.15
 
-        mix_s = nt.nodes.new("ShaderNodeMixShader")
-        nt.links.new(mul_n.outputs["Value"], mix_s.inputs["Fac"])
-        nt.links.new(bsdf.outputs["BSDF"], mix_s.inputs[1])
-        nt.links.new(emit_n.outputs["Emission"], mix_s.inputs[2])
-        nt.links.new(mix_s.outputs["Shader"], out_n.inputs["Surface"])
+    mul_n = nt.nodes.new("ShaderNodeMath"); mul_n.operation = 'MULTIPLY'
+    axis_out = sep_xyz.outputs["Y"] if seq_id in [1, 2, 3] else sep_xyz.outputs["X"]
+    nt.links.new(axis_out, sub_n.inputs[0])
+    nt.links.new(sub_n.outputs["Value"], abs_n.inputs[0])
+    nt.links.new(abs_n.outputs["Value"], map_n.inputs["Value"])
+    nt.links.new(map_n.outputs["Result"], mul_n.inputs[0])
+    nt.links.new(wire_n.outputs["Fac"], mul_n.inputs[1])
+
+    emit_n = nt.nodes.new("ShaderNodeEmission")
+    emit_n.inputs["Color"].default_value = wire_col
+    emit_n.inputs["Strength"].default_value = 2.6
+
+    mix_s = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(mul_n.outputs["Value"], mix_s.inputs["Fac"])
+    nt.links.new(bsdf.outputs["BSDF"], mix_s.inputs[1])
+    nt.links.new(emit_n.outputs["Emission"], mix_s.inputs[2])
+    nt.links.new(mix_s.outputs["Shader"], out_n.inputs["Surface"])
 
 z_min = min(min((o.matrix_world @ Vector(v)).z for v in o.bound_box) for o in objs)
 bpy.ops.mesh.primitive_plane_add(size=100.0, location=(0, 0, z_min - (0.02 if seq_id < 4 else 0.35)))
