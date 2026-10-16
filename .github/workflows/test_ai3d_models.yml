@@ -1,0 +1,80 @@
+name: Test_AI3D_TRELLIS_Hunyuan
+on:
+  workflow_dispatch:
+
+jobs:
+  generate_3d:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        job_id: [0, 1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install gradio_client & Blender 4.3.2
+        run: |
+          pip install -q gradio_client pillow opencv-python-headless numpy
+          wget -q https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz -O /tmp/blender.tar.xz
+          tar -xf /tmp/blender.tar.xz -C /tmp/
+      - name: Run AI 3D Model Generation
+        run: |
+          python3 sr71_doc/run_ai3d_worker.py ${{ matrix.job_id }}
+      - name: Render Generated GLB in Blender 4.3.2 from 2 Angles
+        run: |
+          /tmp/blender-4.3.2-linux-x64/blender -b --python-expr "
+          import bpy, os, glob, math
+          from mathutils import Vector
+          out_d = '/tmp/ai3d_out_${{ matrix.job_id }}'
+          glbs = glob.glob(os.path.join(out_d, '*.glb'))
+          if glbs:
+              bpy.ops.wm.read_factory_settings(use_empty=True)
+              scn = bpy.context.scene
+              scn.render.engine = 'BLENDER_EEVEE_NEXT'
+              scn.render.resolution_x = 1280
+              scn.render.resolution_y = 720
+              w = bpy.data.worlds.new('W')
+              scn.world = w
+              w.use_nodes = True
+              bg = w.node_tree.nodes.get('Background')
+              bg.inputs[0].default_value = (0.14, 0.16, 0.20, 1.0)
+              bg.inputs[1].default_value = 1.2
+              for nm, en, rot in [('Key', 4.5, (45,-25,30)), ('Fill', 2.5, (60,30,-45)), ('Rim', 3.5, (-45,20,-140))]:
+                  ld = bpy.data.lights.new(nm, 'SUN')
+                  ld.energy = en
+                  lo = bpy.data.objects.new(nm, ld)
+                  scn.collection.objects.link(lo)
+                  lo.rotation_euler = tuple(math.radians(a) for a in rot)
+              bpy.ops.import_scene.gltf(filepath=glbs[0])
+              objs = [o for o in scn.objects if o.type == 'MESH']
+              # If untextured (Hunyuan shape), assign sleek titanium PBR shader
+              for o in objs:
+                  if not o.data.materials:
+                      m = bpy.data.materials.new('Ti')
+                      m.use_nodes = True
+                      bsdf = m.node_tree.nodes.get('Principled BSDF')
+                      bsdf.inputs['Base Color'].default_value = (0.22, 0.25, 0.30, 1.0)
+                      bsdf.inputs['Metallic'].default_value = 0.85
+                      bsdf.inputs['Roughness'].default_value = 0.25
+                      o.data.materials.append(m)
+              min_v = Vector((1e9,1e9,1e9)); max_v = Vector((-1e9,-1e9,-1e9))
+              for o in objs:
+                  for v in o.bound_box:
+                      wv = o.matrix_world @ Vector(v)
+                      for i in range(3): min_v[i]=min(min_v[i],wv[i]); max_v[i]=max(max_v[i],wv[i])
+              center = (min_v + max_v) * 0.5
+              md = max(max_v - min_v)
+              cd = bpy.data.cameras.new('C'); cd.lens = 45.0
+              co = bpy.data.objects.new('C', cd); scn.collection.objects.link(co); scn.camera = co
+              for k, ang in enumerate([35, 145]):
+                  r = math.radians(ang)
+                  co.location = center + Vector((md*1.45*math.cos(r), md*1.45*math.sin(r), md*0.65))
+                  direction = center - co.location
+                  co.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
+                  scn.render.filepath = os.path.join(out_d, f'render_angle_{k}.png')
+                  bpy.ops.render.render(write_still=True)
+          "
+      - name: Upload AI 3D Output
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai3d_job_${{ matrix.job_id }}
+          path: /tmp/ai3d_out_${{ matrix.job_id }}/*
