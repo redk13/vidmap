@@ -176,7 +176,9 @@ def make_fresnel_mat(name, col_inner, col_edge, str_inner=0.5, str_edge=2.4, tra
     return m
 
 if SCENE_TYPE.startswith("bl_sr71"):
-    scn.cycles.max_bounces = 0
+    scn.cycles.max_bounces = 6
+    scn.cycles.transparent_max_bounces = 12
+    scn.cycles.transmission_bounces = 4
     scn.cycles.diffuse_bounces = 0
     scn.cycles.glossy_bounces = 0
     scn.cycles.use_denoising = False
@@ -217,14 +219,14 @@ if SCENE_TYPE.startswith("bl_sr71"):
                 bsdf.inputs["Metallic"].default_value = 0.92
                 bsdf.inputs["Roughness"].default_value = 0.18
             else:
-                if SCENE_TYPE == "bl_sr71_thermal":
-                    bsdf.inputs["Base Color"].default_value = (0.45, 0.14, 0.05, 1.0)
-                    bsdf.inputs["Emission Color"].default_value = (0.95, 0.28, 0.05, 1.0)
-                    bsdf.inputs["Emission Strength"].default_value = 0.65
-                else:
-                    bsdf.inputs["Base Color"].default_value = (0.085, 0.095, 0.125, 1.0)
+                bsdf.inputs["Base Color"].default_value = (0.085, 0.095, 0.125, 1.0)
                 bsdf.inputs["Metallic"].default_value = 0.88
                 bsdf.inputs["Roughness"].default_value = 0.24
+                if SCENE_TYPE == "bl_sr71_thermal":
+                    lw_th = m.node_tree.nodes.new("ShaderNodeLayerWeight")
+                    lw_th.inputs[0].default_value = 0.38
+                    m.node_tree.links.new(lw_th.outputs["Fresnel"], bsdf.inputs["Emission Strength"])
+                    bsdf.inputs["Emission Color"].default_value = (1.0, 0.28, 0.04, 1.0)
 
     min_v = Vector((1e9, 1e9, 1e9))
     max_v = Vector((-1e9, -1e9, -1e9))
@@ -277,10 +279,10 @@ if SCENE_TYPE.startswith("bl_sr71"):
     coords_log = []
     for kf in range(N_KF):
         u = kf / max(1, N_KF - 1)
-        ang = math.radians(-38.0 + u * 52.0)
-        rad = max_dim * (1.12 - 0.14 * math.sin(u * math.pi))
-        elev = max_dim * (0.36 + 0.18 * math.cos(u * math.pi))
-        cam_o.location = center + Vector((-rad * math.cos(ang), -rad * math.sin(ang) - 2.5, elev))
+        ang = math.radians(150.0 + u * 35.0)
+        rad = max_dim * (0.96 - 0.10 * math.sin(u * math.pi))
+        elev = max_dim * (0.34 + 0.10 * math.cos(u * math.pi))
+        cam_o.location = center + Vector((rad * math.cos(ang), rad * math.sin(ang), elev))
         rnd.aim(cam_o, center)
         scn.render.filepath = os.path.join(OUT_DIR, f"kf_{{kf:03d}}.png")
         bpy.ops.render.render(write_still=True)
