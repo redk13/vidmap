@@ -1,707 +1,1000 @@
 #!/usr/bin/env python3
 """
-Iter 2: Renders the 5 Hero 3D Scenes in Blender 4.3 Cycles using real BlenderKit .blend assets
-and Museum Laser Scans (with rotation_mode='XYZ' fix, true 3D topographic relief mesh,
-non-overlapping organic blood pool, and exact camera framing), then stitches the Side-by-Side Board.
+Blender MCP + BlenderKit 5-Scene Production Renderer for Brand-New Script:
+"THE MURDER OF GRIGORI RASPUTIN IN THE YUSUPOV PALACE (DECEMBER 30, 1916)"
+Replicating the exact visual DNA of Imperial ("The Most Famous Killing in History")
+on a 100% new historical subject and script:
+  - Scene 0: 3D Architectural Cutaway of Yusupov Palace & Moika Canal in Void
+  - Scene 1: 3D Interior Tableau of the Soundproofed Basement (Rasputin vs. Prince Yusupov)
+  - Scene 2: 3D Exploded Marble Bust of Rasputin + 3-Column Bento Noir Dossier ("UNTOUCHABLE")
+  - Scene 3: 3D Tilted Topographic Relief Map of Russia & Eastern Front + Conspirator Collector Cards
+  - Scene 4: 90° Top-Down Forensic Crime Scene (Fallen Rasputin, Blood Pool, Revolver, Footprints)
 """
-import sys, os, math, json
+import os
+import sys
+import math
+import json
 
-if "--stitch" in sys.argv:
-    import cv2, numpy as np
-    from PIL import Image, ImageDraw, ImageFont
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+ASSETS_DIR = os.path.join(SCRIPT_DIR, "assets")
 
-    idx = sys.argv.index("--stitch")
-    in_dir = sys.argv[idx + 1]
-    out_jpg = sys.argv[idx + 2]
-    here = os.path.dirname(os.path.abspath(__file__))
 
-    def gf(name, sz):
-        for d in [here, "/var/tmp/imperial_assets"]:
-            p = os.path.join(d, name)
-            if os.path.exists(p):
-                return ImageFont.truetype(p, sz)
-        return ImageFont.load_default()
+def run_stitch(stills_dir, out_board_path):
+    from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-    board = cv2.imread(os.path.join(here, "imperial_forensic_analysis.jpg"))
-    # Board is 2536x1920:
-    # Board A (top): 3 rows of 420px height (header=36px, image=384px -> 3*420 = 1260px), 3 cols of 640px width
-    # Divider: 16px red bar (y=1260..1276)
-    # Board B (bottom): 3 rows of 420px height starting at y=1276 (1276 + 3*420 = 2536px)
+    W, H = 1920, 3000
+    board = Image.new("RGB", (W, H), (10, 11, 14))
+    draw = ImageDraw.Draw(board)
+
+    font_paths = [
+        os.path.join(SCRIPT_DIR, "fonts", "Cinzel-Bold.ttf"),
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    ]
+    font_path = next((p for p in font_paths if os.path.exists(p)), None)
+    f_title = ImageFont.truetype(font_path, 26) if font_path else ImageFont.load_default()
+    f_sub = ImageFont.truetype(font_path, 18) if font_path else ImageFont.load_default()
+    f_lbl = ImageFont.truetype(font_path, 15) if font_path else ImageFont.load_default()
+    f_small = ImageFont.truetype(font_path, 13) if font_path else ImageFont.load_default()
+    f_giant = ImageFont.truetype(font_path, 40) if font_path else ImageFont.load_default()
+
+    # Header
+    draw.rectangle([0, 0, W, 88], fill=(16, 18, 23))
+    draw.line([(0, 88), (W, 88)], fill=(195, 38, 42), width=3)
+    draw.text(
+        (32, 18),
+        "IMPERIAL VISUAL DNA  x  NEW 45s SCRIPT: THE MURDER OF RASPUTIN (DEC 30, 1916)",
+        fill=(242, 238, 228),
+        font=f_title,
+    )
+    draw.text(
+        (32, 54),
+        "LEFT: Original 'Imperial' Style Reference   |   RIGHT: New Script Rendered in Blender 4.3 Cycles + BlenderKit (Yusupov Palace, Petrograd)",
+        fill=(185, 190, 202),
+        font=f_sub,
+    )
+
+    ref_path = os.path.join(SCRIPT_DIR, "imperial_forensic_analysis.jpg")
+    ref_img = Image.open(ref_path).convert("RGB") if os.path.exists(ref_path) else None
+
     def crop_cell(is_board_b, row, col):
-        y0 = (1276 if is_board_b else 0) + row * 420 + 36
+        if ref_img is None:
+            return Image.new("RGB", (640, 328), (24, 24, 28))
+        y_base = 1096 if is_board_b else 0
         x0 = col * 640
-        return board[y0:y0+384, x0:x0+640]
+        y0 = y_base + row * 360 + 32
+        return ref_img.crop((x0, y0, x0 + 640, y0 + 328))
 
-    refs = [
-        ("SCENE 1: Curia of Pompey Interior (00:15.0)", crop_cell(False, 0, 0)),
-        ("SCENE 2: Cutaway Architecture & Portico Gardens (00:42.0)", crop_cell(False, 0, 2)),
-        ("SCENE 3: 3D Extruded Topographic Relief Map (05:00.0)", crop_cell(True, 1, 2)),
-        ("SCENE 4: Exploded Marble Bust + Medallion + Red Arc (05:15.0)", crop_cell(True, 2, 0)),
-        ("SCENE 5: Top-Down Crime Scene & Blood Pool (12:30.0)", crop_cell(False, 2, 1)),
+    ref_crops = [
+        crop_cell(False, 0, 2),  # Scene 0 ref: 3D Cutaway Architecture in Void (02:25.0)
+        crop_cell(False, 0, 0),  # Scene 1 ref: 3D Interior Hall Tableau + Callouts (00:18.0)
+        crop_cell(True, 2, 0),   # Scene 2 ref: Sliced 3D Marble Bust + Red Streak (05:15.0)
+        crop_cell(True, 1, 2),   # Scene 3 ref: 3D Tilted Topographic Map + Scrubber (05:00.0)
+        crop_cell(False, 2, 1),  # Scene 4 ref: 3D Top-Down Crime Scene Blood Pool (12:30.0)
     ]
 
-    rows_out = []
-    for s_id, (title, ref_crop) in enumerate(refs):
-        ref_960 = cv2.resize(ref_crop, (960, 540), interpolation=cv2.INTER_AREA)
-        our_path = os.path.join(in_dir, f"scene_{s_id}.png")
-        our_raw = cv2.imread(our_path)
-        if our_raw is None:
-            our_raw = np.zeros((540, 960, 3), dtype=np.uint8)
-        else:
-            our_raw = cv2.resize(our_raw, (960, 540), interpolation=cv2.INTER_AREA)
+    scene_meta = [
+        (
+            "SCENE 1 (00:00-00:09) — 3D ARCHITECTURAL CUTAWAY: YUSUPOV PALACE & MOIKA CANAL",
+            "VO: \"Just after midnight on Dec 30th, 1916, inside the Yusupov Palace in Petrograd, four aristocrats lured Rasputin into a soundproofed basement.\"",
+        ),
+        (
+            "SCENE 2 (00:09-00:18) — 3D BASEMENT TABLEAU: CYANIDE WINE & PASTRIES",
+            "VO: \"Grigori Rasputin sat across from Prince Felix Yusupov beneath vaulted stone arches—unaware the Madeira wine held potassium cyanide.\"",
+        ),
+        (
+            "SCENE 3 (00:18-00:27) — BENTO NOIR DOSSIER + SLICED 3D BUST: 'UNTOUCHABLE'",
+            "VO: \"To the nobility, the Siberian mystic had become untouchable—appointing ministers and dictating Tsarina Alexandra's wartime rule.\"",
+        ),
+        (
+            "SCENE 4 (00:27-00:36) — 3D TOPOGRAPHIC MAP OF RUSSIA + CONSPIRATOR COLLECTOR CARDS",
+            "VO: \"As collapsing frontlines pushed Petrograd toward revolution, three conspirators converged on the Moika Canal to save the monarchy by murder.\"",
+        ),
+        (
+            "SCENE 5 (00:36-00:45) — 90° TOP-DOWN FORENSIC CRIME SCENE: THREE REVOLVER SHOTS",
+            "VO: \"When poison failed, three close-range revolver shots brought Rasputin down—leaving a trail of blood to the Moika River.\"",
+        ),
+    ]
 
-        im = Image.fromarray(cv2.cvtColor(our_raw, cv2.COLOR_BGR2RGB)).convert("RGBA")
-        ov = Image.new("RGBA", (960, 540), (0, 0, 0, 0))
-        dr = ImageDraw.Draw(ov)
+    def decorate_rasputin_still(idx, img):
+        """Apply authentic Imperial 2.5D Noir HUD / Bento Dossier / Callouts onto the rendered 3D frame."""
+        im = img.copy().convert("RGBA")
+        ov = Image.new("RGBA", im.size, (0, 0, 0, 0))
+        d = ImageDraw.Draw(ov)
+        w, h = im.size
 
-        if s_id == 0:
-            dr.text((466, 118), "DICTATOR", font=gf("Inter-Bold.ttf", 12), fill=(0,0,0,180), anchor="lm")
-            dr.text((465, 117), "DICTATOR", font=gf("Inter-Bold.ttf", 12), fill=(225,228,235,245), anchor="lm")
-            dr.text((466, 139), "JULIUS CAESAR", font=gf("Inter-Bold.ttf", 25), fill=(0,0,0,200), anchor="lm")
-            dr.text((465, 138), "JULIUS CAESAR", font=gf("Inter-Bold.ttf", 25), fill=(255,255,255,255), anchor="lm")
-            dr.rectangle([42, 412, 195, 478], fill=(16, 17, 20, 235))
-            dr.text((54, 424), "15TH OF MARCH", font=gf("Inter-Bold.ttf", 13), fill=(220, 224, 230, 255))
-            dr.text((54, 444), "44 BC", font=gf("Inter-Bold.ttf", 24), fill=(255, 255, 255, 255))
-        elif s_id == 2:
-            for bx, by, btxt, bcol in [(325, 185, "CAESAR'S FACTION", (200, 16, 46)), (715, 315, "POMPEY'S FACTION", (35, 95, 225))]:
-                dr.rectangle([bx-82, by-14, bx+82, by+14], fill=(248, 248, 250, 248))
-                dr.text((bx, by), btxt, font=gf("Inter-Bold.ttf", 12), fill=(*bcol, 255), anchor="mm")
-            dr.text((465, 248), "ROME", font=gf("Inter-Bold.ttf", 14), fill=(255, 255, 255, 245), anchor="mm")
-            dr.rectangle([140, 448, 820, 512], fill=(8, 9, 12, 225), outline=(110, 115, 125, 190), width=1)
-            dr.line([(195, 486), (765, 486)], fill=(235, 238, 245, 235), width=2)
-            ticks = [
-                (195, "JAN, 49 BC", "RUBICON CROSSING"),
-                (310, "MARCH, 49 BC", "CAESAR TAKES ROME"),
-                (440, "AUG, 48 BC", "BATTLE OF PHARSALUS"),
-                (590, "FEB, 44 BC", "DICTATOR PERPETUO"),
-                (765, "MARCH, 45 BC", "BATTLE OF MUNDA"),
+        if idx == 0:
+            # Bottom-left black date stamp ("30TH OF DECEMBER / 1916")
+            d.rectangle([28, h - 92, 265, h - 26], fill=(12, 13, 16, 235), outline=(210, 45, 48, 255), width=2)
+            d.rectangle([28, h - 92, 35, h - 26], fill=(210, 45, 48, 255))
+            d.text((46, h - 82), "30TH OF DECEMBER", fill=(245, 242, 232, 255), font=f_sub)
+            d.text((46, h - 56), "1916  //  PETROGRAD", fill=(215, 65, 68, 255), font=f_lbl)
+            # Top-right architectural legend badge
+            d.rectangle([w - 310, 22, w - 24, 78], fill=(14, 15, 20, 220), outline=(180, 155, 95, 220), width=1)
+            d.text((w - 296, 30), "YUSUPOV PALACE CUTAWAY", fill=(240, 215, 145, 255), font=f_lbl)
+            d.text((w - 296, 52), "94 MOIKA EMBANKMENT", fill=(185, 190, 200, 255), font=f_small)
+
+        elif idx == 1:
+            # Bottom-left date stamp
+            d.rectangle([28, h - 92, 265, h - 26], fill=(12, 13, 16, 235), outline=(210, 45, 48, 255), width=2)
+            d.rectangle([28, h - 92, 35, h - 26], fill=(210, 45, 48, 255))
+            d.text((46, h - 82), "30TH OF DECEMBER", fill=(245, 242, 232, 255), font=f_sub)
+            d.text((46, h - 56), "1916  //  01:15 AM", fill=(215, 65, 68, 255), font=f_lbl)
+
+            # Tracked 3D Callout for Rasputin (Left-Center)
+            rx, ry = int(w * 0.43), int(h * 0.34)
+            bx, by = int(w * 0.14), int(h * 0.16)
+            d.line([(rx, ry), (rx - 35, by + 24), (bx + 230, by + 24)], fill=(235, 60, 62, 255), width=2)
+            d.ellipse([rx - 5, ry - 5, rx + 5, ry + 5], fill=(235, 60, 62, 255))
+            d.rectangle([bx, by, bx + 230, by + 54], fill=(14, 15, 20, 238), outline=(235, 60, 62, 255), width=2)
+            d.text((bx + 12, by + 8), "IMPERIAL ADVISOR", fill=(235, 75, 75, 255), font=f_small)
+            d.text((bx + 12, by + 26), "GRIGORI RASPUTIN", fill=(248, 245, 236, 255), font=f_lbl)
+
+            # Tracked 3D Callout for Prince Felix Yusupov (Right-Center)
+            yx, yy = int(w * 0.61), int(h * 0.48)
+            bx2, by2 = int(w * 0.66), int(h * 0.22)
+            d.line([(yx, yy), (yx + 28, by2 + 24), (bx2, by2 + 24)], fill=(230, 195, 110, 255), width=2)
+            d.ellipse([yx - 5, yy - 5, yx + 5, yy + 5], fill=(230, 195, 110, 255))
+            d.rectangle([bx2, by2, bx2 + 240, by2 + 54], fill=(14, 15, 20, 238), outline=(230, 195, 110, 255), width=2)
+            d.text((bx2 + 12, by2 + 8), "CHIEF CONSPIRATOR", fill=(230, 195, 110, 255), font=f_small)
+            d.text((bx2 + 12, by2 + 26), "PRINCE FELIX YUSUPOV", fill=(248, 245, 236, 255), font=f_lbl)
+
+        elif idx == 2:
+            # Left Column: Tactile Bento Noir Collector Card ("G. Y. RASPUTIN" + "UNTOUCHABLE" Stamp)
+            cx0, cy0, cx1, cy1 = 26, 28, 286, h - 28
+            d.rectangle([cx0, cy0, cx1, cy1], fill=(22, 21, 20, 245), outline=(215, 205, 185, 240), width=2)
+            d.rectangle([cx0 + 8, cy0 + 8, cx1 - 8, cy0 + 38], fill=(165, 28, 32, 255))
+            d.text((cx0 + 18, cy0 + 14), "G. Y. RASPUTIN (1869–1916)", fill=(248, 244, 232, 255), font=f_lbl)
+
+            p_ras = os.path.join(ASSETS_DIR, "portrait_rasputin.jpg")
+            if os.path.exists(p_ras):
+                pr = Image.open(p_ras).convert("L").convert("RGBA").resize((236, 230))
+                ov.paste(pr, (cx0 + 12, cy0 + 46))
+            d.rectangle([cx0 + 12, cy0 + 46, cx0 + 248, cy0 + 276], outline=(185, 175, 155, 255), width=2)
+
+            # Red rubber stamp "UNTOUCHABLE"
+            d.rectangle([cx0 + 24, cy0 + 225, cx0 + 236, cy0 + 266], fill=(185, 22, 26, 235), outline=(255, 230, 220, 255), width=2)
+            d.text((cx0 + 42, cy0 + 235), "STAMP: UNTOUCHABLE", fill=(255, 245, 240, 255), font=f_lbl)
+
+            # Bottom Bento Career List inside Left/Center Card
+            d.text((cx0 + 14, cy0 + 290), "IMPERIAL HOLD (1907–1916):", fill=(235, 195, 110, 255), font=f_small)
+            items = [
+                ("1907: Royal Healer to Alexei", False),
+                ("1915: Tsar Departs for Front", False),
+                ("1916: 4 PMs Purged in 12 Months", True),
+                ("1916: Military & Synod Vetoes", True),
             ]
-            for tx, t_yr, t_ev in ticks:
-                dr.ellipse([tx-3, 483, tx+3, 489], fill=(255,255,255,255))
-                dr.text((tx, 468), t_ev, font=gf("Inter-Regular.ttf", 8), fill=(195, 200, 210, 230), anchor="mm")
-                dr.text((tx, 499), t_yr, font=gf("Inter-Bold.ttf", 10), fill=(245, 248, 252, 255), anchor="mm")
-        elif s_id == 3:
-            dr.text((505, 320), "POMPEY", font=gf("Inter-Bold.ttf", 22), fill=(255, 255, 255, 255), anchor="lm")
-            dr.text((505, 338), "\"THE GREAT\"", font=gf("Inter-Regular.ttf", 10), fill=(210, 215, 222, 235), anchor="lm")
-            dr.text((505, 350), "\"THE DEFEATED\"", font=gf("Inter-Bold.ttf", 10), fill=(235, 55, 65, 255), anchor="lm")
+            for ii, (txt, hi) in enumerate(items):
+                yy = cy0 + 316 + ii * 32
+                if hi:
+                    d.rectangle([cx0 + 12, yy - 2, cx1 - 12, yy + 22], fill=(195, 32, 36, 225))
+                d.text((cx0 + 18, yy + 2), txt, fill=(248, 245, 236, 255), font=f_small)
 
-        our_final = cv2.cvtColor(np.array(Image.alpha_composite(im, ov).convert("RGB")), cv2.COLOR_RGB2BGR)
-        hdr_ref = np.zeros((38, 960, 3), dtype=np.uint8); hdr_ref[:] = (18, 20, 26)
-        hdr_our = np.zeros((38, 960, 3), dtype=np.uint8); hdr_our[:] = (18, 26, 20)
-        cv2.putText(hdr_ref, f"ORIGINAL IMPERIAL VIDEO: {title}", (16, 26), cv2.FONT_HERSHEY_DUPLEX, 0.65, (80, 220, 255), 1, cv2.LINE_AA)
-        cv2.putText(hdr_our, f"OUR BLENDER 4.3 + BLENDERKIT MCP (Iter 2): {title}", (16, 26), cv2.FONT_HERSHEY_DUPLEX, 0.65, (100, 255, 120), 1, cv2.LINE_AA)
-        rows_out.append(np.hstack([np.vstack([hdr_ref, ref_960]), np.vstack([hdr_our, our_final])]))
+            # Right Primary-Source Quote Box (Sir George Buchanan, 1916)
+            qx0, qy0, qx1, qy1 = w - 320, h - 165, w - 22, h - 26
+            d.rectangle([qx0, qy0, qx1, qy1], fill=(18, 18, 22, 238), outline=(215, 48, 52, 255), width=2)
+            d.rectangle([qx0, qy0, qx1, qy0 + 28], fill=(185, 30, 34, 255))
+            d.text((qx0 + 10, qy0 + 6), "PRIMARY SOURCE // NOV 1916", fill=(250, 245, 235, 255), font=f_small)
+            d.text((qx0 + 12, qy0 + 38), "\"If the Emperor upholds", fill=(240, 238, 230, 255), font=f_small)
+            d.text((qx0 + 12, qy0 + 58), "Rasputin against Russia,", fill=(240, 238, 230, 255), font=f_small)
+            d.text((qx0 + 12, qy0 + 78), "catastrophe is inevitable.\"", fill=(240, 238, 230, 255), font=f_small)
+            d.text((qx0 + 12, qy0 + 106), "— Sir G. Buchanan, Brit. Amb.", fill=(220, 185, 105, 255), font=f_small)
 
-    full_board = np.vstack(rows_out)
-    cv2.imwrite(out_jpg, full_board, [cv2.IMWRITE_JPEG_QUALITY, 94])
-    print("Saved comparison board:", out_jpg)
+        elif idx == 3:
+            # 3 Conspirator Collector Cards Sliding Toward Petrograd + Bottom Timeline Scrubber
+            cards = [
+                ("PRINCE F. YUSUPOV", "THE ARISTOCRAT HOST", "portrait_yusupov.jpg", 26, 26, (215, 180, 95, 255)),
+                ("GRAND DUKE DMITRI", "THE TSAR'S COUSIN", "portrait_dmitri.jpg", 26, 178, (215, 60, 62, 255)),
+                ("V. PURISHKEVICH", "MONARCHIST DEPUTY", "portrait_purishkevich.jpg", 26, 330, (90, 165, 235, 255)),
+            ]
+            for title, role, pfile, x0, y0, col in cards:
+                d.rectangle([x0, y0, x0 + 255, y0 + 136], fill=(16, 18, 24, 238), outline=col, width=2)
+                pp = os.path.join(ASSETS_DIR, pfile)
+                if os.path.exists(pp):
+                    pi = Image.open(pp).convert("L").convert("RGBA").resize((84, 112))
+                    ov.paste(pi, (x0 + 10, y0 + 12))
+                d.rectangle([x0 + 10, y0 + 12, x0 + 94, y0 + 124], outline=col, width=1)
+                d.text((x0 + 104, y0 + 18), title, fill=(248, 245, 235, 255), font=f_small)
+                d.text((x0 + 104, y0 + 42), role, fill=col, font=f_small)
+                d.text((x0 + 104, y0 + 72), "TARGET: MOIKA", fill=(200, 205, 215, 255), font=f_small)
+                d.text((x0 + 104, y0 + 94), "DEC 30, 1916", fill=(235, 75, 75, 255), font=f_small)
+
+            # Map Callout Labels
+            px, py = int(w * 0.63), int(h * 0.28)
+            d.ellipse([px - 8, py - 8, px + 8, py + 8], fill=(255, 210, 80, 255), outline=(255, 255, 255, 255), width=2)
+            d.rectangle([px + 14, py - 20, px + 245, py + 24], fill=(14, 16, 22, 235), outline=(255, 210, 80, 255), width=2)
+            d.text((px + 22, py - 12), "PETROGRAD (YUSUPOV PALACE)", fill=(255, 215, 95, 255), font=f_small)
+            d.text((px + 22, py + 5), "IMPERIAL CAPITAL // 1916", fill=(220, 225, 235, 255), font=f_small)
+
+            fx, fy = int(w * 0.45), int(h * 0.62)
+            d.rectangle([fx - 110, fy - 18, fx + 155, fy + 22], fill=(165, 24, 28, 230), outline=(255, 180, 180, 255), width=1)
+            d.text((fx - 98, fy - 8), "COLLAPSING EASTERN FRONT (1916)", fill=(255, 245, 240, 255), font=f_small)
+
+            # Bottom Chronological Scrubber
+            d.rectangle([295, h - 64, w - 24, h - 18], fill=(12, 14, 18, 240), outline=(195, 42, 46, 255), width=2)
+            d.text((312, h - 48), "AUG 1915: TSAR TAKES COMMAND", fill=(185, 190, 202, 255), font=f_small)
+            d.line([(565, h - 40), (w - 255, h - 40)], fill=(225, 55, 58, 255), width=3)
+            d.ellipse([w - 262, h - 47, w - 248, h - 33], fill=(235, 65, 68, 255))
+            d.text((w - 240, h - 48), "DEC 30, 1916: MOIKA PLOT", fill=(255, 215, 100, 255), font=f_small)
+
+        elif idx == 4:
+            # Top-Left Forensic Autopsy / Source Spotlight Box
+            d.rectangle([24, 22, 435, 128], fill=(14, 15, 20, 238), outline=(215, 48, 52, 255), width=2)
+            d.rectangle([24, 22, 435, 50], fill=(185, 28, 32, 255))
+            d.text((36, 28), "FORENSIC AUTOPSY // PROF. D. KOSOROTOV (DEC 1916)", fill=(250, 245, 235, 255), font=f_small)
+            d.text((36, 58), "\"Three close-range revolver shots—one piercing the", fill=(238, 235, 226, 255), font=f_small)
+            d.text((36, 78), "chest, a final shot through the forehead at point-blank", fill=(238, 235, 226, 255), font=f_small)
+            d.text((36, 98), "range—before the body was cast into the Malaya Nevka.\"", fill=(225, 190, 110, 255), font=f_small)
+
+            # Weapon Callout ("WEBLEY .455 REVOLVER")
+            wx, wy = int(w * 0.60), int(h * 0.56)
+            d.line([(wx, wy), (wx + 55, wy - 45), (wx + 195, wy - 45)], fill=(235, 200, 110, 255), width=2)
+            d.ellipse([wx - 5, wy - 5, wx + 5, wy + 5], fill=(235, 200, 110, 255))
+            d.rectangle([wx + 55, wy - 76, wx + 285, wy - 38], fill=(14, 15, 20, 235), outline=(235, 200, 110, 255), width=1)
+            d.text((wx + 65, wy - 64), "MURDER WEAPON: REVOLVER", fill=(245, 215, 125, 255), font=f_small)
+
+            # Victim Callout ("FALLEN MYSTIC: G. RASPUTIN")
+            vx, vy = int(w * 0.48), int(h * 0.50)
+            d.line([(vx, vy), (vx - 65, vy + 68), (vx - 265, vy + 68)], fill=(235, 58, 62, 255), width=2)
+            d.ellipse([vx - 5, vy - 5, vx + 5, vy + 5], fill=(235, 58, 62, 255))
+            d.rectangle([vx - 285, vy + 38, vx - 55, vy + 76], fill=(14, 15, 20, 235), outline=(235, 58, 62, 255), width=1)
+            d.text((vx - 275, vy + 50), "FALLEN VICTIM: G. RASPUTIN", fill=(245, 95, 95, 255), font=f_small)
+
+        return Image.alpha_composite(im, ov).convert("RGB")
+
+    row_h = 575
+    y_start = 104
+    for idx in range(5):
+        y0 = y_start + idx * row_h
+        draw.rectangle([20, y0, W - 20, y0 + row_h - 14], fill=(18, 20, 26), outline=(52, 56, 68), width=2)
+        draw.rectangle([20, y0, W - 20, y0 + 58], fill=(25, 28, 36))
+        draw.text((36, y0 + 8), scene_meta[idx][0], fill=(245, 212, 128), font=f_sub)
+        draw.text((36, y0 + 33), scene_meta[idx][1], fill=(205, 212, 225), font=f_small)
+
+        # Left Panel: Original Imperial Visual DNA Reference
+        ref_panel = ref_crops[idx].resize((896, 488), Image.Resampling.LANCZOS)
+        board.paste(ref_panel, (36, y0 + 66))
+        draw.rectangle([36, y0 + 66, 36 + 896, y0 + 66 + 488], outline=(110, 115, 130), width=2)
+        draw.rectangle([46, y0 + 76, 430, y0 + 106], fill=(12, 12, 16))
+        draw.text((56, y0 + 82), "STYLE DNA REFERENCE (IMPERIAL)", fill=(215, 220, 230), font=f_lbl)
+
+        # Right Panel: Brand-New Rasputin Script Rendered in Blender 4.3 + BlenderKit
+        still_path = os.path.join(stills_dir, f"scene_{idx}.png")
+        if os.path.exists(still_path):
+            mcp_raw = Image.open(still_path).convert("RGB").resize((896, 488), Image.Resampling.LANCZOS)
+            mcp_panel = decorate_rasputin_still(idx, mcp_raw)
+        else:
+            mcp_panel = Image.new("RGB", (896, 488), (40, 15, 15))
+        board.paste(mcp_panel, (988, y0 + 66))
+        draw.rectangle([988, y0 + 66, 988 + 896, y0 + 66 + 488], outline=(205, 48, 52), width=2)
+
+    board.save(out_board_path, quality=94)
+    print("Saved 5-scene Rasputin comparison board to", out_board_path)
+
+
+if "--stitch" in sys.argv:
+    idx = sys.argv.index("--stitch")
+    run_stitch(sys.argv[idx + 1], sys.argv[idx + 2])
     sys.exit(0)
 
-# Inside Blender:
-import bpy, bmesh
-from mathutils import Vector
+# ==============================================================================
+# BLENDER 4.3 CYCLES + BLENDERKIT 3D SCENE BUILDER FOR RASPUTIN (DEC 30, 1916)
+# ==============================================================================
+import bpy
+import bmesh
+import mathutils
 
-argv = sys.argv[sys.argv.index("--") + 1:]
+argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else ["0", "/tmp/scene_0.png"]
 SCENE_ID = int(argv[0])
-OUT_PNG = argv[1]
-HERE = os.path.dirname(os.path.abspath(__file__))
+OUT_PATH = argv[1]
+FAST_TEST = "--fast" in argv
 
-sys.path.insert(0, HERE)
-from mcp_scene1_curia import make_pbr_stone_or_wood
-from mcp_scene1_curia_v2 import make_curia_carpet_and_border_floor, make_senator_clavus_mat, create_seated_male_senator_mesh
+sys.path.insert(0, SCRIPT_DIR)
+from mcp_scene1_curia_v2 import make_curia_carpet_and_border_floor
 
-def init_cycles():
-    bpy.ops.wm.read_factory_settings(use_empty=True)
-    scn = bpy.context.scene
-    scn.render.engine = 'CYCLES'
-    scn.cycles.device = 'CPU'
-    scn.cycles.samples = 18
-    scn.cycles.max_bounces = 1
-    scn.cycles.diffuse_bounces = 0
-    scn.cycles.glossy_bounces = 1
-    scn.cycles.use_denoising = True
-    scn.cycles.denoiser = 'OPENIMAGEDENOISE'
-    scn.cycles.denoising_prefilter = 'FAST'
-    scn.render.resolution_x = 1920
-    scn.render.resolution_y = 1080
-    scn.view_settings.view_transform = 'AgX'
-    scn.view_settings.look = 'AgX - Medium High Contrast'
-    scn.view_settings.exposure = -0.05
-    world = bpy.data.worlds.new("W")
-    scn.world = world
-    world.use_nodes = True
-    world.node_tree.nodes.get("Background").inputs[0].default_value = (0.008, 0.009, 0.012, 1.0)
-    world.node_tree.nodes.get("Background").inputs[1].default_value = 0.25
-    return scn
+bpy.ops.wm.read_factory_settings(use_empty=True)
+scene = bpy.context.scene
+scene.render.engine = "CYCLES"
+scene.cycles.device = "CPU"
+scene.cycles.samples = 4 if FAST_TEST else 28
+scene.cycles.use_denoising = not FAST_TEST
+if not FAST_TEST:
+    scene.cycles.denoiser = "OPENIMAGEDENOISER"
+    scene.cycles.denoising_prefilter = "FAST"
+scene.cycles.max_bounces = 2
+scene.cycles.diffuse_bounces = 1
+scene.cycles.glossy_bounces = 1
+scene.cycles.transmission_bounces = 1
+scene.cycles.transparent_max_bounces = 2
+scene.render.resolution_x = 480 if FAST_TEST else 1280
+scene.render.resolution_y = 270 if FAST_TEST else 720
+scene.render.resolution_percentage = 100
+scene.view_settings.view_transform = "AgX"
+scene.view_settings.look = "AgX - Medium High Contrast"
 
-def load_local_blend(fname):
-    bpath = os.path.join(HERE, fname)
-    with bpy.data.libraries.load(bpath, link=False) as (df, dt):
-        dt.objects = [n for n in df.objects if n]
+
+def make_mat(name, color, rough=0.45, metal=0.0, emit_col=None, emit_str=0.0):
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    bsdf = m.node_tree.nodes.get("Principled BSDF")
+    if bsdf:
+        bsdf.inputs["Base Color"].default_value = (*color, 1.0)
+        bsdf.inputs["Roughness"].default_value = rough
+        bsdf.inputs["Metallic"].default_value = metal
+        if emit_col and emit_str > 0.0:
+            if "Emission Color" in bsdf.inputs:
+                bsdf.inputs["Emission Color"].default_value = (*emit_col, 1.0)
+            if "Emission Strength" in bsdf.inputs:
+                bsdf.inputs["Emission Strength"].default_value = emit_str
+    return m
+
+
+def make_stone_mat(name, c1, c2, rough=0.42, scale=4.5):
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    bsdf = nt.nodes.get("Principled BSDF")
+    bsdf.inputs["Roughness"].default_value = rough
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    noise = nt.nodes.new("ShaderNodeTexNoise")
+    noise.inputs["Scale"].default_value = scale
+    noise.inputs["Detail"].default_value = 6.0
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].position = 0.25
+    ramp.color_ramp.elements[0].color = (*c1, 1.0)
+    ramp.color_ramp.elements[1].position = 0.78
+    ramp.color_ramp.elements[1].color = (*c2, 1.0)
+    bump = nt.nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 0.08
+    nt.links.new(tc.outputs["Object"], noise.inputs["Vector"])
+    nt.links.new(noise.outputs["Fac"], ramp.inputs["Fac"])
+    nt.links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
+    nt.links.new(noise.outputs["Fac"], bump.inputs["Height"])
+    nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    return m
+
+
+def load_blend_asset(filename, name_prefix, target_height=None, mat=None):
+    path = os.path.join(SCRIPT_DIR, filename)
+    if not os.path.exists(path):
+        path = os.path.join(ASSETS_DIR, filename)
+    if not os.path.exists(path):
+        return None
+    with bpy.data.libraries.load(path, link=False) as (df, dt):
+        dt.objects = df.objects
     meshes = []
     for o in dt.objects:
-        if o is not None and o.type == "MESH":
-            o.rotation_mode = 'XYZ'
-            bpy.context.scene.collection.objects.link(o)
+        if o is not None and o.type == "MESH" and len(o.data.vertices) > 4:
+            bpy.context.collection.objects.link(o)
+            o.hide_render = False
+            o.hide_viewport = False
+            o.visible_camera = True
             meshes.append(o)
     if not meshes:
         return None
-    bpy.ops.object.select_all(action='DESELECT')
+    bpy.ops.object.select_all(action="DESELECT")
     for m in meshes:
         m.select_set(True)
     bpy.context.view_layer.objects.active = meshes[0]
     if len(meshes) > 1:
         bpy.ops.object.join()
     obj = bpy.context.view_layer.objects.active
-    obj.rotation_mode = 'XYZ'
-    bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
-    bpy.ops.object.mode_set(mode='EDIT')
-    bpy.ops.mesh.select_all(action='SELECT')
-    bpy.ops.mesh.normals_make_consistent(inside=False)
-    bpy.ops.object.mode_set(mode='OBJECT')
-    bpy.ops.object.shade_smooth()
+    obj.name = name_prefix
+    obj.rotation_mode = "XYZ"
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+
+    verts = [v.co for v in obj.data.vertices]
+    xs = [v.x for v in verts]
+    ys = [v.y for v in verts]
+    zs = [v.z for v in verts]
+    dz = max(zs) - min(zs)
+    span = max(max(xs) - min(xs), max(ys) - min(ys), dz) if "revolver" in filename else dz
+    sc = (target_height / max(span, 1e-4)) if target_height else 1.0
+    cx = 0.5 * (min(xs) + max(xs))
+    cy = 0.5 * (min(ys) + max(ys))
+    min_z = min(zs)
+    for v in obj.data.vertices:
+        v.co.x = (v.co.x - cx) * sc
+        v.co.y = (v.co.y - cy) * sc
+        v.co.z = (v.co.z - min_z) * sc
+    obj.data.update()
+    if mat:
+        obj.data.materials.clear()
+        obj.data.materials.append(mat)
     return obj
 
+
+def instance_obj(proto, name, loc, rot=(0, 0, 0), scale=(1, 1, 1), mat=None):
+    inst = proto.copy()
+    inst.data = proto.data.copy() if mat else proto.data
+    inst.name = name
+    inst.rotation_mode = "XYZ"
+    inst.location = loc
+    inst.rotation_euler = rot
+    inst.scale = scale
+    inst.hide_render = False
+    if mat:
+        inst.data.materials.clear()
+        inst.data.materials.append(mat)
+    bpy.context.collection.objects.link(inst)
+    return inst
+
+
+def add_box(name, loc, scale, mat, rot=(0, 0, 0)):
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=loc, rotation=rot)
+    o = bpy.context.active_object
+    o.name = name
+    o.rotation_mode = "XYZ"
+    o.scale = scale
+    o.data.materials.clear()
+    o.data.materials.append(mat)
+    return o
+
+
+def add_cyl(name, loc, r, depth, mat, verts=32, rot=(0, 0, 0)):
+    bpy.ops.mesh.primitive_cylinder_add(vertices=verts, radius=r, depth=depth, location=loc, rotation=rot)
+    o = bpy.context.active_object
+    o.name = name
+    o.rotation_mode = "XYZ"
+    o.data.materials.clear()
+    o.data.materials.append(mat)
+    return o
+
+
+def add_3d_text(text, loc, size, mat, rot=(0, 0, 0), extrude=0.05):
+    bpy.ops.object.text_add(location=loc, rotation=rot)
+    t = bpy.context.active_object
+    t.rotation_mode = "XYZ"
+    t.data.body = text
+    t.data.size = size
+    t.data.extrude = extrude
+    t.data.align_x = "CENTER"
+    t.data.align_y = "CENTER"
+    font_path = os.path.join(SCRIPT_DIR, "fonts", "Cinzel-Bold.ttf")
+    if os.path.exists(font_path):
+        t.data.font = bpy.data.fonts.load(font_path)
+    t.data.materials.clear()
+    t.data.materials.append(mat)
+    return t
+
+
+def setup_world(col=(0.014, 0.015, 0.020), strength=1.0):
+    w = bpy.data.worlds.new("World")
+    scene.world = w
+    w.use_nodes = True
+    bg = w.node_tree.nodes.get("Background")
+    bg.inputs[0].default_value = (*col, 1.0)
+    bg.inputs[1].default_value = strength
+
+
+def add_area_light(name, loc, rot_deg, energy, size, col=(1.0, 0.92, 0.80)):
+    ld = bpy.data.lights.new(name, type="AREA")
+    ld.energy = energy
+    ld.size = size
+    ld.color = col
+    lo = bpy.data.objects.new(name, ld)
+    lo.rotation_mode = "XYZ"
+    lo.location = loc
+    lo.rotation_euler = tuple(math.radians(a) for a in rot_deg)
+    bpy.context.collection.objects.link(lo)
+    return lo
+
+
+def add_camera(loc, rot_deg, lens=32.0):
+    cd = bpy.data.cameras.new("Cam")
+    cd.lens = lens
+    co = bpy.data.objects.new("Cam", cd)
+    co.rotation_mode = "XYZ"
+    co.location = loc
+    co.rotation_euler = tuple(math.radians(a) for a in rot_deg)
+    bpy.context.collection.objects.link(co)
+    scene.camera = co
+    return co
+
+
+# ==============================================================================
+# SCENE 0: 3D ARCHITECTURAL CUTAWAY OF YUSUPOV PALACE & MOIKA CANAL (DEC 1916)
+# ==============================================================================
 if SCENE_ID == 0:
-    scn = init_cycles()
-    mat_floor = make_curia_carpet_and_border_floor()
-    mat_trav = make_pbr_stone_or_wood("TravWall", (0.42, 0.39, 0.35), rough=0.42, noise_scale=6.0)
-    mat_step = make_pbr_stone_or_wood("StepMarble", (0.54, 0.51, 0.46), rough=0.35, noise_scale=8.0)
-    mat_wood = make_pbr_stone_or_wood("DarkWalnut", (0.12, 0.06, 0.03), rough=0.32, noise_scale=16.0)
+    setup_world((0.012, 0.014, 0.020), 1.0)
 
-    bpy.ops.mesh.primitive_plane_add(size=24.0, location=(0, 0, 0))
-    bpy.context.active_object.data.materials.append(mat_floor)
+    mat_stucco_gold = make_stone_mat("YusupovStucco", (0.76, 0.64, 0.38), (0.64, 0.52, 0.28), rough=0.45, scale=5.0)
+    mat_granite = make_stone_mat("MoikaGranite", (0.28, 0.29, 0.32), (0.18, 0.19, 0.22), rough=0.5, scale=8.0)
+    mat_vault_stone = make_stone_mat("VaultStone", (0.52, 0.48, 0.42), (0.36, 0.33, 0.28), rough=0.55, scale=6.0)
+    mat_white_trim = make_mat("WhiteCol", (0.90, 0.88, 0.84), rough=0.35)
+    mat_snow = make_stone_mat("Snow", (0.86, 0.89, 0.94), (0.74, 0.78, 0.86), rough=0.65, scale=4.0)
+    mat_ice = make_mat("CanalIce", (0.08, 0.14, 0.22), rough=0.12, metal=0.2)
+    mat_cut_red = make_mat("CutEdgeRed", (0.68, 0.16, 0.16), rough=0.4, emit_col=(0.68, 0.16, 0.16), emit_str=0.4)
+    mat_wood_dark = make_mat("DarkWood", (0.22, 0.13, 0.08), rough=0.35)
+    mat_carpet_red = make_mat("CarpetRed", (0.58, 0.08, 0.10), rough=0.7)
+    mat_text_white = make_mat("TextWhite", (0.96, 0.95, 0.92), rough=0.2, emit_col=(0.96, 0.95, 0.92), emit_str=1.6)
+    mat_text_gold = make_mat("TextGold", (0.95, 0.78, 0.35), rough=0.2, emit_col=(0.95, 0.78, 0.35), emit_str=1.8)
+    mat_footstep = make_mat("FootstepRed", (0.92, 0.14, 0.16), rough=0.2, emit_col=(0.95, 0.15, 0.18), emit_str=3.2)
 
-    for side in (-1, 1):
-        for tier in range(3):
-            x_c = side * (2.65 + tier * 0.98)
-            z_top = 0.16 + tier * 0.28
-            bpy.ops.mesh.primitive_cube_add(size=1.0, location=(x_c, -0.4, z_top * 0.5))
-            st = bpy.context.active_object; st.scale = (0.98, 7.6, z_top); st.data.materials.append(mat_step)
-            for y_sec, sec_len in [(-2.2, 3.0), (1.4, 3.0)]:
-                bpy.ops.mesh.primitive_cube_add(size=1.0, location=(x_c + side*0.05, y_sec, z_top + 0.42))
-                seat = bpy.context.active_object; seat.scale = (0.46, sec_len, 0.06); seat.data.materials.append(mat_wood)
-                bpy.ops.mesh.primitive_cube_add(size=1.0, location=(x_c + side*0.26, y_sec, z_top + 0.68))
-                back = bpy.context.active_object; back.scale = (0.06, sec_len, 0.52); back.data.materials.append(mat_wood)
-                for end_s in (-1, 1):
-                    y_end = y_sec + end_s * (sec_len * 0.5)
-                    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(x_c + side*0.06, y_end, z_top + 0.38))
-                    arm = bpy.context.active_object; arm.scale = (0.50, 0.08, 0.76); arm.data.materials.append(mat_wood)
+    # Dark architectural plinth base in void
+    add_box("BasePlinth", (0.0, 0.0, -0.8), (22.0, 14.0, 0.6), mat_granite)
 
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0.0, 5.8, 4.0))
-    rw = bpy.context.active_object; rw.scale = (16.0, 0.5, 8.0); rw.data.materials.append(mat_trav)
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0.0, 5.52, 2.2))
-    dr = bpy.context.active_object; dr.scale = (2.4, 0.12, 4.4); dr.data.materials.append(mat_wood)
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0.0, 5.55, 2.3))
-    df = bpy.context.active_object; df.scale = (2.75, 0.18, 4.7); df.data.materials.append(mat_step)
-    for sx in (-3.4, 3.4):
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(sx, 5.52, 1.6))
-        ml = bpy.context.active_object; ml.scale = (3.2, 0.10, 1.5); ml.data.materials.append(mat_step)
+    # 1. Left Wing: Frozen Moika Canal + Granite Embankment (-10.5 .. -5.2)
+    add_box("MoikaCanalWater", (-8.0, 0.0, -0.38), (5.0, 13.6, 0.12), mat_ice)
+    add_box("MoikaEmbankmentWall", (-5.3, 0.0, 0.05), (0.6, 13.8, 0.95), mat_granite)
+    add_box("MoikaSnowBank", (-4.4, 0.0, 0.42), (1.4, 13.6, 0.14), mat_snow)
 
-    col_proto = load_local_blend("bk_column_corinthian.blend")
+    # 2. Center Block: Yusupov Palace Neoclassical Facade & Courtyard (-3.8 .. +2.8)
+    add_box("CourtyardFloor", (-0.5, 0.0, 0.42), (6.6, 13.6, 0.16), mat_snow)
+    # Rear Palace Grand Wing with Corinthian Columns
+    add_box("PalaceRearWall", (-0.5, 4.8, 2.5), (6.8, 0.45, 4.2), mat_stucco_gold)
+    add_box("PalaceRearCutTop", (-0.5, 4.8, 4.65), (6.9, 0.50, 0.12), mat_cut_red)
+    # West Wing Wall (facing Moika Canal)
+    add_box("PalaceWestWall", (-3.7, 0.2, 2.2), (0.45, 9.6, 3.6), mat_stucco_gold)
+    add_box("PalaceWestCutTop", (-3.7, 0.2, 4.05), (0.50, 9.7, 0.12), mat_cut_red)
+
+    col_proto = load_blend_asset("bk_column_corinthian.blend", "ColProto", target_height=3.6, mat=mat_white_trim)
     if col_proto:
-        verts = [v.co for v in col_proto.data.vertices]
-        mz, xz = min(v.z for v in verts), max(v.z for v in verts)
-        cx, cy = 0.5*(min(v.x for v in verts)+max(v.x for v in verts)), 0.5*(min(v.y for v in verts)+max(v.y for v in verts))
-        sf = 5.5 / max(xz - mz, 1e-4)
-        for v in col_proto.data.vertices:
-            v.co = Vector(((v.co.x - cx)*sf, (v.co.y - cy)*sf, (v.co.z - mz)*sf))
-        col_proto.data.update(); col_proto.hide_render = True; col_proto.location = (0, 0, -30)
-        for cx_p, cy_p, cz_p in [(-3.4, 4.6, 0.0), (3.4, 4.6, 0.0), (-5.2, 1.5, 0.72), (5.2, 1.5, 0.72)]:
-            inst = col_proto.copy(); inst.rotation_mode = 'XYZ'; inst.hide_render = False
-            inst.location = (cx_p, cy_p, cz_p); scn.collection.objects.link(inst)
+        col_proto.hide_render = True
+        for cx in [-3.0, -1.8, -0.6, 0.6, 1.8]:
+            instance_obj(col_proto, f"FacadeCol_{cx}", (cx, 4.35, 0.50))
 
-    mat_caesar = make_senator_clavus_mat("CaesarMat", is_caesar=True, hair_tone=0.18)
-    mat_sen_1 = make_senator_clavus_mat("SenMat1", is_caesar=False, hair_tone=0.55)
-    orator_proto = load_local_blend("clean_caesar_orator.blend")
-    mod_d = orator_proto.modifiers.new("Dec", "DECIMATE"); mod_d.ratio = 0.35
-    bpy.context.view_layer.objects.active = orator_proto; bpy.ops.object.modifier_apply(modifier=mod_d.name)
+    # Upper Cutaway Drawing Room (where conspirators wait above the basement)
+    add_box("DrawingRoomFloor", (4.8, 2.2, 2.35), (5.8, 5.2, 0.18), mat_wood_dark)
+    add_box("DrawingRoomRug", (4.8, 2.2, 2.46), (3.8, 3.4, 0.04), mat_carpet_red)
+    add_box("DrawingRoomBackWall", (4.8, 4.7, 3.5), (5.8, 0.35, 2.4), mat_stucco_gold)
+    add_box("DrawingRoomCutTop", (4.8, 4.7, 4.72), (5.9, 0.40, 0.10), mat_cut_red)
 
-    seated_male_proto = create_seated_male_senator_mesh(orator_proto)
-    seated_male_proto.rotation_mode = 'XYZ'
-    seated_male_proto.data.materials.clear(); seated_male_proto.data.materials.append(mat_sen_1)
-    seated_male_proto.hide_render = True; seated_male_proto.location = (0, 0, -30)
+    # 3. Right Wing Cutaway: Soundproofed Basement & Spiral Staircase (X = +2.2 .. +9.2, Z = 0.0)
+    add_box("BasementFloor", (5.6, -1.2, 0.05), (6.8, 8.2, 0.18), mat_vault_stone)
+    add_box("BasementRug", (5.8, -1.2, 0.16), (4.2, 4.6, 0.03), mat_carpet_red)
+    add_box("BasementBackWall", (5.6, 2.8, 1.25), (6.8, 0.38, 2.3), mat_vault_stone)
+    add_box("BasementRightWall", (8.9, -1.2, 1.25), (0.38, 8.2, 2.3), mat_vault_stone)
+    add_box("BasementRightCut", (8.9, -1.2, 2.42), (0.42, 8.3, 0.10), mat_cut_red)
 
-    stand_male_proto = orator_proto.copy(); stand_male_proto.data = orator_proto.data.copy()
-    stand_male_proto.rotation_mode = 'XYZ'
-    scn.collection.objects.link(stand_male_proto)
-    for v in stand_male_proto.data.vertices:
-        if v.co.x < -0.14 and v.co.z > 1.05:
-            dx = -0.14 - v.co.x; v.co.z -= dx * 0.75; v.co.x = -0.14 - dx * 0.50
-    stand_male_proto.data.update()
-    stand_male_proto.data.materials.clear(); stand_male_proto.data.materials.append(mat_sen_1)
-    stand_male_proto.hide_render = True; stand_male_proto.location = (0, 0, -30)
-    orator_proto.hide_render = True; orator_proto.location = (0, 0, -30)
+    # Vaulted Stone Arches inside the Basement
+    for ay in [-3.4, 0.8]:
+        add_box(f"VaultPillarL_{ay}", (2.6, ay, 1.2), (0.45, 0.45, 2.2), mat_vault_stone)
+        add_box(f"VaultPillarR_{ay}", (8.5, ay, 1.2), (0.45, 0.45, 2.2), mat_vault_stone)
+        add_box(f"VaultBeam_{ay}", (5.55, ay, 2.25), (6.3, 0.42, 0.28), mat_vault_stone)
 
-    caesar_walk = stand_male_proto.copy(); caesar_walk.data = stand_male_proto.data.copy()
-    caesar_walk.rotation_mode = 'XYZ'
-    caesar_walk.data.materials.clear(); caesar_walk.data.materials.append(mat_caesar)
-    caesar_walk.hide_render = False; caesar_walk.location = (-0.15, 1.55, 0.0)
-    caesar_walk.rotation_euler = (0, 0, math.radians(-20))
-    scn.collection.objects.link(caesar_walk)
+    # Spiral / Stepped Staircase descending from Courtyard/Drawing Room into Basement
+    for s in range(9):
+        sx = 2.2 + s * 0.22
+        sy = 1.8 - s * 0.42
+        sz = 2.25 - s * 0.24
+        add_box(f"Stair_{s}", (sx, sy, sz), (0.85, 0.40, 0.12), mat_white_trim)
 
-    for side in (-1, 1):
-        base_rz = 90.0 if side == -1 else -90.0
-        for tier in range(3):
-            x_pos = side * (2.65 + tier * 0.98)
-            z_pos = 0.16 + tier * 0.28
-            for y_pos in [-3.4, -2.5, -1.6, -0.8, 0.3, 1.2, 2.1, 2.9]:
-                inst = seated_male_proto.copy()
-                inst.rotation_mode = 'XYZ'
-                inst.hide_render = False
-                inst.location = (x_pos, y_pos, z_pos)
-                jitter = ((int(y_pos*10) * 17 + tier * 31) % 16) - 8
-                inst.rotation_euler = (0, 0, math.radians(base_rz + jitter))
-                scn.collection.objects.link(inst)
+    # Populate Basement & Drawing Room with BlenderKit Furniture & Characters
+    tbl_proto = load_blend_asset("bk_table_round.blend", "TblProto", target_height=0.78, mat=mat_wood_dark)
+    if tbl_proto:
+        tbl_proto.hide_render = True
+        instance_obj(tbl_proto, "BasementTable", (5.8, -1.2, 0.18), scale=(1.35, 1.35, 1.1))
+        instance_obj(tbl_proto, "DrawingRoomTable", (4.8, 2.2, 2.48), scale=(1.2, 1.2, 1.0))
 
-    for sx, sy, sz, srz in [
-        (-1.35, 4.3, 0.0, 60), (-0.65, 4.5, 0.0, -45),
-        (-1.55, 0.6, 0.0, 75), (-1.40, -0.3, 0.0, 115),
-        (1.35, -0.2, 0.0, -85),
-        (1.85, 2.7, 0.0, -55), (2.45, 2.8, 0.0, -125)
-    ]:
-        st_i = stand_male_proto.copy(); st_i.rotation_mode = 'XYZ'; st_i.hide_render = False
-        st_i.location = (sx, sy, sz); st_i.rotation_euler = (0, 0, math.radians(srz))
-        scn.collection.objects.link(st_i)
+    ras_proto = load_blend_asset("bk_bearded_statue.blend", "RasProto", target_height=1.82, mat=mat_white_trim)
+    if ras_proto:
+        ras_proto.hide_render = True
+        instance_obj(ras_proto, "RasputinBasement", (4.9, -1.2, 0.18), rot=(0, 0, math.radians(90)))
 
-    ld_key = bpy.data.lights.new("SunShaft", type='AREA'); ld_key.energy = 340.0; ld_key.size = 4.0; ld_key.color = (1.0, 0.95, 0.88)
-    lo_key = bpy.data.objects.new("SunShaft", ld_key); scn.collection.objects.link(lo_key); lo_key.location = (-3.8, -2.8, 6.8)
-    lo_key.rotation_euler = (Vector((0.0, 1.0, 0.0)) - lo_key.location).to_track_quat('-Z', 'Y').to_euler()
-    ld_fill = bpy.data.lights.new("AmbientFill", type='AREA'); ld_fill.energy = 110.0; ld_fill.size = 5.5; ld_fill.color = (0.90, 0.93, 1.0)
-    lo_fill = bpy.data.objects.new("AmbientFill", ld_fill); scn.collection.objects.link(lo_fill); lo_fill.location = (3.8, -4.8, 5.2)
-    lo_fill.rotation_euler = (Vector((0.0, 0.5, 1.0)) - lo_fill.location).to_track_quat('-Z', 'Y').to_euler()
+    yus_proto = load_blend_asset("bk_male_sitting.blend", "YusProto", target_height=1.35, mat=mat_text_gold)
+    if yus_proto:
+        yus_proto.hide_render = True
+        instance_obj(yus_proto, "YusupovBasement", (6.7, -1.2, 0.18), rot=(0, 0, math.radians(-90)))
 
-    cd = bpy.data.cameras.new("Cam"); cd.lens = 29.0
-    co = bpy.data.objects.new("Cam", cd); scn.collection.objects.link(co); scn.camera = co
-    co.location = (-0.95, -5.8, 4.85)
-    co.rotation_euler = (Vector((-0.05, 1.15, 0.65)) - co.location).to_track_quat('-Z', 'Y').to_euler()
-    scn.render.filepath = OUT_PNG
-    bpy.ops.render.render(write_still=True)
+    con_proto = load_blend_asset("bk_decor_man.blend", "ConProto", target_height=1.75, mat=mat_white_trim)
+    if con_proto:
+        con_proto.hide_render = True
+        instance_obj(con_proto, "Conspirator1", (3.8, 2.4, 2.48), rot=(0, 0, math.radians(-35)))
+        instance_obj(con_proto, "Conspirator2", (5.7, 2.5, 2.48), rot=(0, 0, math.radians(25)))
+        instance_obj(con_proto, "Conspirator3", (4.8, 3.3, 2.48), rot=(0, 0, math.radians(0)))
 
-elif SCENE_ID == 1:
-    scn = init_cycles()
-    scn.view_settings.exposure = 0.15
-    mat_stone = make_pbr_stone_or_wood("PorticoStone", (0.68, 0.63, 0.55), rough=0.35, noise_scale=8.0)
-    mat_wall = make_pbr_stone_or_wood("PorticoWall", (0.54, 0.50, 0.44), rough=0.42, noise_scale=10.0)
-    mat_roof_terra = make_pbr_stone_or_wood("TerraRoof", (0.62, 0.42, 0.28), rough=0.40, noise_scale=18.0)
-    mat_roof_slate = make_pbr_stone_or_wood("SlateRoof", (0.28, 0.30, 0.34), rough=0.45, noise_scale=15.0)
-    mat_city = make_pbr_stone_or_wood("CityBlock", (0.20, 0.22, 0.25), rough=0.55, noise_scale=12.0)
-    mat_grass = make_pbr_stone_or_wood("GardenGrass", (0.26, 0.38, 0.20), rough=0.72, noise_scale=25.0)
-    mat_tree = make_pbr_stone_or_wood("CypressFoliage", (0.14, 0.26, 0.12), rough=0.78, noise_scale=30.0)
-    mat_txt = bpy.data.materials.new("TxtWhite"); mat_txt.use_nodes = True
-    bsdf_t = mat_txt.node_tree.nodes.get("Principled BSDF")
-    bsdf_t.inputs["Base Color"].default_value = (0.98, 0.98, 1.0, 1.0)
-    if "Emission Color" in bsdf_t.inputs:
-        bsdf_t.inputs["Emission Color"].default_value = (0.98, 0.98, 1.0, 1.0)
-        bsdf_t.inputs["Emission Strength"].default_value = 0.65
-
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(-1.0, 0, -0.35))
-    base = bpy.context.active_object; base.scale = (22.0, 14.5, 0.70); base.data.materials.append(mat_stone)
-
-    for gx in (-5.5, -1.5):
-        for gy in (-2.5, 2.5):
-            bpy.ops.mesh.primitive_cube_add(size=1.0, location=(gx, gy, 0.04))
-            gb = bpy.context.active_object; gb.scale = (3.2, 2.4, 0.08); gb.data.materials.append(mat_grass)
-            for tx in (gx - 1.2, gx - 0.4, gx + 0.4, gx + 1.2):
-                for ty in (gy - 0.85, gy + 0.85):
-                    bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=0.18, radius2=0.02, depth=0.95, location=(tx, ty, 0.52))
-                    tr = bpy.context.active_object; tr.data.materials.append(mat_tree)
-
-    col_proto = load_local_blend("bk_column_corinthian.blend")
-    if col_proto:
-        verts = [v.co for v in col_proto.data.vertices]
-        mz, xz = min(v.z for v in verts), max(v.z for v in verts)
-        cx, cy = 0.5*(min(v.x for v in verts)+max(v.x for v in verts)), 0.5*(min(v.y for v in verts)+max(v.y for v in verts))
-        sf = 1.55 / max(xz - mz, 1e-4)
-        for v in col_proto.data.vertices:
-            v.co = Vector(((v.co.x - cx)*sf, (v.co.y - cy)*sf, (v.co.z - mz)*sf))
-        col_proto.data.update(); col_proto.hide_render = True; col_proto.location = (0, 0, -30)
-        for x_p in [i * 0.75 for i in range(-11, 3)]:
-            for y_p in (-4.4, 4.4):
-                c_i = col_proto.copy(); c_i.hide_render = False; c_i.location = (x_p, y_p, 0.0)
-                scn.collection.objects.link(c_i)
-        for y_p in [-3.6 + i*0.72 for i in range(11)]:
-            c_i = col_proto.copy(); c_i.hide_render = False; c_i.location = (-8.25, y_p, 0.0)
-            scn.collection.objects.link(c_i)
-        for y_p in [-1.5, -0.9, -0.3, 0.3, 0.9, 1.5]:
-            c_i = col_proto.copy(); c_i.hide_render = False; c_i.location = (2.2, y_p, 0.25)
-            c_i.scale = (1.25, 1.25, 1.35); scn.collection.objects.link(c_i)
-
-    for gy in (-5.0, 5.0):
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(-3.0, gy, 1.68))
-        rf = bpy.context.active_object; rf.scale = (11.2, 1.3, 0.22); rf.data.materials.append(mat_roof_terra)
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(-2.2, gy * 1.32, 1.25))
-        ab = bpy.context.active_object; ab.scale = (15.5, 2.0, 2.5); ab.data.materials.append(mat_wall)
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(-2.2, gy * 1.32, 2.65))
-        ar = bpy.context.active_object; ar.scale = (15.7, 2.2, 0.30); ar.data.materials.append(mat_roof_slate)
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(-8.8, 0.0, 1.68))
-    w_rf = bpy.context.active_object; w_rf.scale = (1.3, 11.2, 0.22); w_rf.data.materials.append(mat_roof_terra)
-
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(4.4, 0.0, 1.85))
-    curia = bpy.context.active_object; curia.scale = (4.2, 3.8, 3.7); curia.data.materials.append(mat_stone)
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(4.4, 0.0, 3.85))
-    cr = bpy.context.active_object; cr.scale = (4.5, 4.1, 0.30); cr.data.materials.append(mat_roof_terra)
-    for wy in (-3.8, 3.8):
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(4.8, wy, 1.35))
-        wg = bpy.context.active_object; wg.scale = (3.8, 2.8, 2.7); wg.data.materials.append(mat_wall)
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(4.8, wy, 2.85))
-        wr = bpy.context.active_object; wr.scale = (4.0, 3.0, 0.28); wr.data.materials.append(mat_roof_slate)
-
-    for bx, by, sx, sy, sz in [
-        (2.5, -9.2, 3.2, 2.4, 1.6), (6.2, -8.8, 3.6, 2.8, 1.9), (4.2, -12.0, 4.0, 2.6, 1.5),
-        (-1.5, -9.5, 3.0, 2.2, 1.4), (8.8, -5.5, 2.8, 3.4, 1.8), (9.2, -1.2, 3.2, 3.0, 2.1)
-    ]:
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(bx, by, sz*0.5 - 0.35))
-        cb = bpy.context.active_object; cb.scale = (sx, sy, sz); cb.data.materials.append(mat_city)
-
-    font_p = os.path.join(HERE, "Inter-Bold.ttf")
-    bpy.ops.object.text_add(location=(3.8, 0.0, 4.05))
-    t_cur = bpy.context.active_object; t_cur.rotation_mode = 'XYZ'
-    t_cur.data.body = "CURIA"; t_cur.data.align_x = 'CENTER'; t_cur.data.align_y = 'CENTER'
-    t_cur.data.size = 1.05; t_cur.data.extrude = 0.14
-    if os.path.exists(font_p): t_cur.data.font = bpy.data.fonts.load(font_p)
-    t_cur.rotation_euler = (math.radians(55), 0, math.radians(-35)); t_cur.data.materials.append(mat_txt)
-
-    bpy.ops.object.text_add(location=(-3.4, 0.0, 0.12))
-    t_por = bpy.context.active_object; t_por.rotation_mode = 'XYZ'
-    t_por.data.body = "PORTICO OF POMPEY"; t_por.data.align_x = 'CENTER'; t_por.data.align_y = 'CENTER'
-    t_por.data.size = 0.68; t_por.data.extrude = 0.08
-    if os.path.exists(font_p): t_por.data.font = bpy.data.fonts.load(font_p)
-    t_por.data.materials.append(mat_txt)
-
-    ld_sun = bpy.data.lights.new("Sun", type='AREA'); ld_sun.energy = 1650.0; ld_sun.size = 10.0; ld_sun.color = (1.0, 0.95, 0.88)
-    lo_sun = bpy.data.objects.new("Sun", ld_sun); scn.collection.objects.link(lo_sun); lo_sun.location = (-12.0, -14.0, 18.0)
-    lo_sun.rotation_euler = (Vector((0, 0, 0)) - lo_sun.location).to_track_quat('-Z', 'Y').to_euler()
-    ld_f = bpy.data.lights.new("Fill", type='AREA'); ld_f.energy = 480.0; ld_f.size = 12.0; ld_f.color = (0.85, 0.90, 1.0)
-    lo_f = bpy.data.objects.new("Fill", ld_f); scn.collection.objects.link(lo_f); lo_f.location = (14.0, -12.0, 12.0)
-    lo_f.rotation_euler = (Vector((0, 0, 0)) - lo_f.location).to_track_quat('-Z', 'Y').to_euler()
-
-    cd = bpy.data.cameras.new("Cam"); cd.lens = 34.0
-    co = bpy.data.objects.new("Cam", cd); scn.collection.objects.link(co); scn.camera = co
-    co.location = (-11.8, -14.8, 11.2)
-    co.rotation_euler = (Vector((-0.5, -0.8, 0.5)) - co.location).to_track_quat('-Z', 'Y').to_euler()
-    scn.render.filepath = OUT_PNG
-    bpy.ops.render.render(write_still=True)
-
-elif SCENE_ID == 2:
-    scn = init_cycles()
-    scn.view_settings.exposure = 0.15
-    scn.world.node_tree.nodes.get("Background").inputs[0].default_value = (0.004, 0.005, 0.007, 1.0)
-
-    def make_emit_mat(name, base_rgb, emit_rgb, emit_str, rough=0.35):
-        m = bpy.data.materials.new(name); m.use_nodes = True
-        bs = m.node_tree.nodes.get("Principled BSDF")
-        bs.inputs["Base Color"].default_value = (*base_rgb, 1.0)
-        bs.inputs["Roughness"].default_value = rough
-        if "Emission Color" in bs.inputs:
-            bs.inputs["Emission Color"].default_value = (*emit_rgb, 1.0)
-            bs.inputs["Emission Strength"].default_value = emit_str
-        return m
-
-    mat_grid_line = make_emit_mat("GridLine", (0.25, 0.27, 0.32), (0.25, 0.27, 0.32), 0.45)
-    for ix in range(-14, 15):
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(ix * 0.65, 0.0, 0.0))
-        gl = bpy.context.active_object; gl.scale = (0.012, 11.0, 0.004); gl.data.materials.append(mat_grid_line)
-    for iy in range(-8, 9):
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0.0, iy * 0.65, 0.0))
-        gl = bpy.context.active_object; gl.scale = (18.5, 0.012, 0.004); gl.data.materials.append(mat_grid_line)
-
-    with open(os.path.join(HERE, "med_countries_50m.geojson"), "r") as f:
-        gj = json.load(f)
-
-    caesar_iso = {"ITA", "FRA", "BEL", "CHE", "AUT", "SVN", "HRV"}
-    pompey_iso = {"ESP", "PRT", "GRC", "ALB", "MKD", "BGR", "TUR", "TUN", "DZA", "MAR", "LBY", "SYR", "EGY"}
-
-    mat_caesar_land = make_emit_mat("CaesarRed", (0.85, 0.06, 0.12), (0.95, 0.08, 0.15), 1.35)
-    mat_pompey_land = make_emit_mat("PompeyBlue", (0.08, 0.24, 0.92), (0.12, 0.32, 1.0), 1.35)
-    mat_neutral_land = make_emit_mat("NeutralDark", (0.08, 0.09, 0.12), (0.05, 0.06, 0.08), 0.25)
-
-    for feat in gj["features"]:
-        iso = feat["properties"].get("ISO_A3", "")
-        geom_d = feat["geometry"]
-        polys = [geom_d["coordinates"][0]] if geom_d["type"] == "Polygon" else [p[0] for p in geom_d["coordinates"]]
-        for ring in polys:
-            pts_2d = []
-            for lon, lat in ring:
-                x = (lon - 12.0) * 0.32
-                y = (lat - 40.0) * 0.38
-                if -10.5 <= x <= 10.5 and -5.5 <= y <= 5.5:
-                    pts_2d.append((x, y))
-            if len(pts_2d) < 4:
-                continue
-            curve_data = bpy.data.curves.new(f"C_{iso}", type='CURVE')
-            curve_data.dimensions = '2D'
-            curve_data.fill_mode = 'BOTH'
-            curve_data.extrude = 0.12 if iso in (caesar_iso | pompey_iso) else 0.05
-            curve_data.bevel_depth = 0.015
-            spline = curve_data.splines.new('POLY')
-            spline.points.add(len(pts_2d) - 1)
-            for idx_p, (px, py) in enumerate(pts_2d):
-                spline.points[idx_p].co = (px, py, 0.0, 1.0)
-            spline.use_cyclic_u = True
-            c_obj = bpy.data.objects.new(f"Map_{iso}", curve_data)
-            c_obj.location = (0, 0, 0.06)
-            scn.collection.objects.link(c_obj)
-            if iso in caesar_iso:
-                c_obj.data.materials.append(mat_caesar_land)
-            elif iso in pompey_iso:
-                c_obj.data.materials.append(mat_pompey_land)
-            else:
-                c_obj.data.materials.append(mat_neutral_land)
-
-    mat_caesar_mtn = make_emit_mat("CaesarMtn", (0.95, 0.18, 0.22), (1.0, 0.22, 0.25), 0.95, rough=0.5)
-    mat_pompey_mtn = make_emit_mat("PompeyMtn", (0.18, 0.42, 1.0), (0.22, 0.48, 1.0), 0.95, rough=0.5)
-    for (mx, my), m_mat, sx, sy, sz in [
-        ((-1.2, 2.2), mat_caesar_mtn, 1.8, 0.55, 0.45),
-        ((-0.2, 1.2), mat_caesar_mtn, 0.55, 1.4, 0.38),
-        ((-4.8, 0.3), mat_pompey_mtn, 1.6, 1.1, 0.38),
-        ((3.2, -0.2), mat_pompey_mtn, 1.2, 1.1, 0.38),
-    ]:
-        bpy.ops.mesh.primitive_grid_add(x_subdivisions=24, y_subdivisions=24, size=1.0, location=(mx, my, 0.15))
-        mt = bpy.context.active_object; mt.scale = (sx, sy, sz)
-        tex = bpy.data.textures.new(f"T_{mx}", type='VORONOI'); tex.noise_scale = 0.55
-        mod = mt.modifiers.new("Mtn", "DISPLACE"); mod.texture = tex; mod.strength = 0.55
-        mt.data.materials.append(m_mat)
-
-    mat_card = make_emit_mat("CardCream", (0.95, 0.92, 0.86), (0.95, 0.92, 0.86), 1.2)
-    for cx, cy, crz in [(-0.45, 1.35, 10), (-0.15, 0.75, -8)]:
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(cx, cy, 0.32))
-        cd_o = bpy.context.active_object; cd_o.scale = (0.42, 0.58, 0.03)
-        cd_o.rotation_euler = (math.radians(25), 0, math.radians(crz))
-        cd_o.data.materials.append(mat_card)
-
-    ld = bpy.data.lights.new("MapKey", type='AREA'); ld.energy = 850.0; ld.size = 10.0
-    lo = bpy.data.objects.new("MapKey", ld); scn.collection.objects.link(lo); lo.location = (-3.0, -6.0, 10.0)
-    lo.rotation_euler = (Vector((0, 0, 0)) - lo.location).to_track_quat('-Z', 'Y').to_euler()
-
-    cd = bpy.data.cameras.new("Cam"); cd.lens = 35.0
-    co = bpy.data.objects.new("Cam", cd); scn.collection.objects.link(co); scn.camera = co
-    co.location = (-0.4, -7.8, 6.2)
-    co.rotation_euler = (Vector((-0.2, 0.3, 0.0)) - co.location).to_track_quat('-Z', 'Y').to_euler()
-    scn.render.filepath = OUT_PNG
-    bpy.ops.render.render(write_still=True)
-
-elif SCENE_ID == 3:
-    scn = init_cycles()
-    scn.view_settings.exposure = -0.15
-    scn.world.node_tree.nodes.get("Background").inputs[1].default_value = 0.03
-
-    bust = load_local_blend("clean_caesar_bust.blend")
-    for v in bust.data.vertices:
-        v.co.x = -v.co.x
-        v.co.y = -v.co.y
-    bust.data.update()
-
-    verts = [v.co for v in bust.data.vertices]
-    cx = 0.5*(min(v.x for v in verts)+max(v.x for v in verts))
-    cy = 0.5*(min(v.y for v in verts)+max(v.y for v in verts))
-    mz, xz = min(v.z for v in verts), max(v.z for v in verts)
-    sf = 1.15 / max(xz - mz, 1e-4)
-    for v in bust.data.vertices:
-        v.co = Vector(((v.co.x - cx)*sf, (v.co.y - cy)*sf, (v.co.z - mz)*sf + 0.25))
-    bust.data.update()
-
-    mat_marble = bpy.data.materials.new("ChiaroscuroMarble"); mat_marble.use_nodes = True
-    nt = mat_marble.node_tree; nt.nodes.clear()
-    out = nt.nodes.new("ShaderNodeOutputMaterial")
-    bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    bsdf.inputs["Roughness"].default_value = 0.34
-    geom = nt.nodes.new("ShaderNodeNewGeometry")
-    ramp = nt.nodes.new("ShaderNodeValToRGB")
-    ramp.color_ramp.elements[0].position = 0.44; ramp.color_ramp.elements[0].color = (0.12, 0.12, 0.13, 1.0)
-    ramp.color_ramp.elements[1].position = 0.56; ramp.color_ramp.elements[1].color = (0.82, 0.80, 0.78, 1.0)
-    nt.links.new(geom.outputs["Pointiness"], ramp.inputs["Fac"])
-    nt.links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
-    nt.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
-
-    mat_core = bpy.data.materials.new("CrimsonCore"); mat_core.use_nodes = True
-    bs_c = mat_core.node_tree.nodes.get("Principled BSDF")
-    bs_c.inputs["Base Color"].default_value = (0.52, 0.02, 0.03, 1.0)
-    bs_c.inputs["Roughness"].default_value = 0.40
-    if "Emission Color" in bs_c.inputs:
-        bs_c.inputs["Emission Color"].default_value = (0.65, 0.02, 0.03, 1.0)
-        bs_c.inputs["Emission Strength"].default_value = 0.45
-
-    bust.data.materials.clear()
-    bust.data.materials.append(mat_marble)
-    bust.data.materials.append(mat_core)
-
-    bust_top = bust.copy(); bust_top.data = bust.data.copy(); bust_top.rotation_mode = 'XYZ'; scn.collection.objects.link(bust_top)
-    bust_core = bust.copy(); bust_core.data = bust.data.copy(); bust_core.rotation_mode = 'XYZ'; scn.collection.objects.link(bust_core)
-    bust_core.scale = (0.78, 0.78, 0.78)
-    bust_core.location = (0.04, 0.0, 0.18)
-    bust_core.data.materials.clear(); bust_core.data.materials.append(mat_core)
-
-    bpy.ops.mesh.primitive_cube_add(size=2.0, location=(0.38, 0.0, 1.35), rotation=(0.0, math.radians(-25), math.radians(10)))
-    cutter = bpy.context.active_object; cutter.data.materials.append(mat_core)
-
-    bpy.context.view_layer.objects.active = bust
-    m1 = bust.modifiers.new("Cut1", "BOOLEAN"); m1.operation = 'DIFFERENCE'; m1.solver = 'EXACT'; m1.object = cutter
-    bpy.ops.object.modifier_apply(modifier=m1.name)
-
-    bpy.context.view_layer.objects.active = bust_top
-    m2 = bust_top.modifiers.new("Cut2", "BOOLEAN"); m2.operation = 'INTERSECT'; m2.solver = 'EXACT'; m2.object = cutter
-    bpy.ops.object.modifier_apply(modifier=m2.name)
-    bpy.data.objects.remove(cutter, do_unlink=True)
-
-    bust_top.location = (0.12, 0.02, 0.14)
-    bust_top.rotation_euler = (0, math.radians(8), math.radians(-5))
-
-    mat_silver = make_pbr_stone_or_wood("SilverCoin", (0.48, 0.49, 0.52), rough=0.32, metal=0.85, noise_scale=24.0)
-    bpy.ops.mesh.primitive_cylinder_add(vertices=64, radius=0.58, depth=0.04, location=(0.0, 0.25, 0.85), rotation=(math.radians(90), 0, 0))
-    coin = bpy.context.active_object; coin.data.materials.append(mat_silver)
-
-    mat_disc = bpy.data.materials.new("RedPodiumDisc"); mat_disc.use_nodes = True
-    bs_d = mat_disc.node_tree.nodes.get("Principled BSDF")
-    bs_d.inputs["Base Color"].default_value = (0.75, 0.03, 0.05, 1.0)
-    if "Emission Color" in bs_d.inputs:
-        bs_d.inputs["Emission Color"].default_value = (0.85, 0.04, 0.06, 1.0)
-        bs_d.inputs["Emission Strength"].default_value = 1.6
-    bpy.ops.mesh.primitive_cylinder_add(vertices=64, radius=0.52, depth=0.015, location=(0.0, 0.0, 0.02))
-    disc = bpy.context.active_object; disc.scale = (1.15, 0.65, 1.0); disc.data.materials.append(mat_disc)
-
-    mat_beam = bpy.data.materials.new("RedArc"); mat_beam.use_nodes = True
-    bs_b = mat_beam.node_tree.nodes.get("Principled BSDF")
-    bs_b.inputs["Base Color"].default_value = (0.95, 0.05, 0.08, 1.0)
-    if "Emission Color" in bs_b.inputs:
-        bs_b.inputs["Emission Color"].default_value = (1.0, 0.06, 0.10, 1.0)
-        bs_b.inputs["Emission Strength"].default_value = 4.5
-    curve_d = bpy.data.curves.new("RedCurve", type='CURVE')
-    curve_d.dimensions = '3D'; curve_d.bevel_depth = 0.012
-    sp = curve_d.splines.new('NURBS')
-    pts_arc = [(-3.2, 0.4, 0.10), (-1.1, 0.35, 0.65), (0.8, 0.35, 1.05), (3.2, 0.4, 1.38)]
-    sp.points.add(len(pts_arc) - 1)
-    for idx_a, (ax, ay, az) in enumerate(pts_arc):
-        sp.points[idx_a].co = (ax, ay, az, 1.0)
-    arc_obj = bpy.data.objects.new("RedArcObj", curve_d)
-    scn.collection.objects.link(arc_obj); arc_obj.data.materials.append(mat_beam)
-
-    ld_k = bpy.data.lights.new("BustKey", type='AREA'); ld_k.energy = 55.0; ld_k.size = 1.4
-    lo_k = bpy.data.objects.new("BustKey", ld_k); scn.collection.objects.link(lo_k); lo_k.location = (-1.6, -1.8, 1.7)
-    lo_k.rotation_euler = (Vector((0, 0, 0.85)) - lo_k.location).to_track_quat('-Z', 'Y').to_euler()
-
-    ld_r = bpy.data.lights.new("RedRim", type='AREA'); ld_r.energy = 45.0; ld_r.size = 1.2; ld_r.color = (1.0, 0.12, 0.15)
-    lo_r = bpy.data.objects.new("RedRim", ld_r); scn.collection.objects.link(lo_r); lo_r.location = (1.5, -1.0, 1.4)
-    lo_r.rotation_euler = (Vector((0, 0, 0.85)) - lo_r.location).to_track_quat('-Z', 'Y').to_euler()
-
-    cd = bpy.data.cameras.new("Cam"); cd.lens = 50.0
-    co = bpy.data.objects.new("Cam", cd); scn.collection.objects.link(co); scn.camera = co
-    co.location = (0.0, -5.2, 0.78)
-    co.rotation_euler = (Vector((0, 0, 0.72)) - co.location).to_track_quat('-Z', 'Y').to_euler()
-    scn.render.filepath = OUT_PNG
-    bpy.ops.render.render(write_still=True)
-
-elif SCENE_ID == 4:
-    scn = init_cycles()
-    scn.view_settings.exposure = 0.05
-
-    mat_slab = make_pbr_stone_or_wood("CrimeMarbleSlab", (0.64, 0.61, 0.57), rough=0.30, noise_scale=3.5)
-    bpy.ops.mesh.primitive_plane_add(size=18.0, location=(0, 0, 0))
-    bpy.context.active_object.data.materials.append(mat_slab)
-
-    mat_blood = bpy.data.materials.new("WetCrimsonBlood"); mat_blood.use_nodes = True
-    bs_bl = mat_blood.node_tree.nodes.get("Principled BSDF")
-    bs_bl.inputs["Base Color"].default_value = (0.42, 0.008, 0.012, 1.0)
-    bs_bl.inputs["Roughness"].default_value = 0.08
-    if "Emission Color" in bs_bl.inputs:
-        bs_bl.inputs["Emission Color"].default_value = (0.38, 0.006, 0.010, 1.0)
-        bs_bl.inputs["Emission Strength"].default_value = 0.35
-
-    lobes = [
-        (0.0, 0.05, 0.78, 0.58, 15),
-        (-0.42, -0.28, 0.48, 0.36, -25),
-        (0.48, -0.18, 0.44, 0.32, 40),
-        (0.12, 0.48, 0.46, 0.34, -10),
-        (-0.55, 0.22, 0.35, 0.25, 30),
-        (0.78, -0.48, 0.14, 0.10, 0),
-        (-0.30, -0.82, 0.15, 0.11, 20),
-        (0.42, -0.75, 0.10, 0.08, -15),
+    # Animated Red Dotted Footstep Trail (from Courtyard -> Stairs -> Basement Table)
+    trail_pts = [
+        (-2.2, -2.5, 0.52), (-1.2, -1.6, 0.52), (-0.2, -0.6, 0.52),
+        (0.8, 0.4, 0.52), (1.6, 1.2, 1.25), (2.4, 1.4, 2.05),
+        (2.9, 0.5, 1.45), (3.4, -0.4, 0.85), (4.0, -1.0, 0.24), (4.6, -1.2, 0.22),
     ]
-    for i_l, (lx, ly, sx, sy, lrz) in enumerate(lobes):
-        h_z = 0.006 + i_l * 0.0015
-        bpy.ops.mesh.primitive_cylinder_add(vertices=48, radius=1.0, depth=h_z, location=(lx, ly, h_z * 0.5))
-        lb = bpy.context.active_object; lb.scale = (sx, sy, 1.0); lb.rotation_euler = (0, 0, math.radians(lrz))
-        lb.data.materials.append(mat_blood)
+    for idx_p, pt in enumerate(trail_pts):
+        add_cyl(f"StepDot_{idx_p}", pt, 0.18, 0.06, mat_footstep, verts=20)
 
-    for i_f, (fx, fy, frz) in enumerate([(-1.05, -0.15, 110), (-1.45, 0.05, 105), (-1.85, -0.10, 115), (1.35, 0.45, -35), (1.65, 0.30, -40)]):
-        bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=0.10, depth=0.005, location=(fx, fy, 0.003 + i_f*0.0005))
-        fp = bpy.context.active_object; fp.scale = (1.3, 0.55, 1.0); fp.rotation_euler = (0, 0, math.radians(frz))
-        fp.data.materials.append(mat_blood)
+    # 3D World-Locked Extruded Architectural Labels (Imperial Style)
+    add_3d_text("MOIKA CANAL", (-8.2, -3.2, 0.15), 0.58, mat_text_white, rot=(math.radians(52), 0, math.radians(-20)), extrude=0.05)
+    add_3d_text("COURTYARD", (-0.6, -3.6, 0.72), 0.58, mat_text_white, rot=(math.radians(52), 0, math.radians(-20)), extrude=0.05)
+    add_3d_text("DRAWING ROOM", (4.5, 3.8, 5.05), 0.56, mat_text_gold, rot=(math.radians(54), 0, math.radians(-20)), extrude=0.05)
+    add_3d_text("BASEMENT", (5.6, -4.6, 0.65), 0.58, mat_text_gold, rot=(math.radians(52), 0, math.radians(-20)), extrude=0.05)
 
-    mat_caesar = make_senator_clavus_mat("FallenCaesarMat", is_caesar=True, hair_tone=0.18)
-    mat_sen = make_senator_clavus_mat("CrimeSenMat", is_caesar=False, hair_tone=0.52)
-    caesar_fallen = load_local_blend("clean_caesar_orator.blend")
-    caesar_fallen.rotation_mode = 'XYZ'
-    for v in caesar_fallen.data.vertices:
-        v.co.z -= 0.90
-    caesar_fallen.data.update()
-    caesar_fallen.data.materials.clear(); caesar_fallen.data.materials.append(mat_caesar)
-    caesar_fallen.rotation_euler = (math.radians(86), math.radians(12), math.radians(38))
-    caesar_fallen.location = (-0.08, 0.08, 0.22)
+    # Lighting & Isometric-Perspective Cutaway Camera
+    add_area_light("KeyMoon", (-10.0, -12.0, 14.0), (45, -20, -25), 1400.0, 8.0, (0.78, 0.86, 1.0))
+    add_area_light("BasementWarm", (5.8, -1.2, 2.1), (0, 0, 0), 420.0, 2.5, (1.0, 0.76, 0.42))
+    add_area_light("DrawingWarm", (4.8, 2.2, 4.3), (0, 0, 0), 320.0, 2.5, (1.0, 0.82, 0.52))
+    add_camera(loc=(-8.0, -16.8, 11.8), rot_deg=(54.5, 0.0, -21.0), lens=30.0)
 
-    mat_gold = make_pbr_stone_or_wood("CrimeGold", (0.82, 0.62, 0.20), rough=0.22, metal=0.92, noise_scale=12.0)
-    mat_velvet = make_pbr_stone_or_wood("CrimeVelvet", (0.48, 0.02, 0.03), rough=0.60, noise_scale=20.0)
-    mat_wood = make_pbr_stone_or_wood("CrimeWood", (0.14, 0.07, 0.035), rough=0.35, noise_scale=16.0)
 
-    throne_grp = bpy.data.objects.new("OverturnedThrone", None); throne_grp.rotation_mode = 'XYZ'
-    scn.collection.objects.link(throne_grp)
-    for part_loc, part_sc, p_mat in [
-        ((0, 0, 0.25), (0.56, 0.52, 0.07), mat_gold),
-        ((0, 0.24, 0.58), (0.56, 0.06, 0.65), mat_gold),
-        ((-0.24, -0.22, 0.12), (0.06, 0.06, 0.26), mat_gold),
-        ((0.24, -0.22, 0.12), (0.06, 0.06, 0.26), mat_gold),
-        ((-0.24, 0.22, 0.12), (0.06, 0.06, 0.26), mat_gold),
-        ((0.24, 0.22, 0.12), (0.06, 0.06, 0.26), mat_gold),
-    ]:
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=part_loc)
-        po = bpy.context.active_object; po.scale = part_sc; po.data.materials.append(p_mat); po.parent = throne_grp
-    throne_grp.location = (0.75, 1.05, 0.26)
-    throne_grp.rotation_euler = (math.radians(78), math.radians(-18), math.radians(32))
+# ==============================================================================
+# SCENE 1: 3D BASEMENT TABLEAU (RASPUTIN VS. PRINCE YUSUPOV, CYANIDE WINE)
+# ==============================================================================
+elif SCENE_ID == 1:
+    setup_world((0.015, 0.013, 0.018), 1.0)
 
-    chair_grp = bpy.data.objects.new("VelvetChair", None); chair_grp.rotation_mode = 'XYZ'
-    scn.collection.objects.link(chair_grp)
-    for part_loc, part_sc, p_mat in [
-        ((0, 0, 0.28), (0.62, 0.58, 0.10), mat_velvet),
-        ((0, 0.26, 0.62), (0.62, 0.08, 0.65), mat_velvet),
-        ((-0.28, 0, 0.42), (0.07, 0.56, 0.25), mat_wood),
-        ((0.28, 0, 0.42), (0.07, 0.56, 0.25), mat_wood),
-        ((-0.26, -0.24, 0.14), (0.06, 0.06, 0.28), mat_wood),
-        ((0.26, -0.24, 0.14), (0.06, 0.06, 0.28), mat_wood),
-    ]:
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=part_loc)
-        po = bpy.context.active_object; po.scale = part_sc; po.data.materials.append(p_mat); po.parent = chair_grp
-    chair_grp.location = (1.25, -0.95, 0.0)
-    chair_grp.rotation_euler = (math.radians(8), math.radians(-6), math.radians(-135))
+    # Checkered marble floor + crimson-and-gold Russian carpet in center
+    make_curia_carpet_and_border_floor()
 
-    sen_proto = load_local_blend("clean_caesar_orator.blend")
-    mod_d = sen_proto.modifiers.new("Dec", "DECIMATE"); mod_d.ratio = 0.35
-    bpy.context.view_layer.objects.active = sen_proto; bpy.ops.object.modifier_apply(modifier=mod_d.name)
-    for v in sen_proto.data.vertices:
-        if v.co.x < -0.14 and v.co.z > 1.05:
-            dx = -0.14 - v.co.x; v.co.z -= dx * 0.75; v.co.x = -0.14 - dx * 0.50
-    sen_proto.data.update()
-    sen_proto.data.materials.clear(); sen_proto.data.materials.append(mat_sen)
-    sen_proto.hide_render = True; sen_proto.location = (0, 0, -30)
+    mat_vault = make_stone_mat("VaultStone", (0.46, 0.42, 0.37), (0.30, 0.27, 0.23), rough=0.52, scale=6.0)
+    mat_col = make_stone_mat("ColMarble", (0.84, 0.80, 0.73), (0.70, 0.65, 0.58), rough=0.32, scale=4.0)
+    mat_walnut = make_stone_mat("Walnut", (0.24, 0.14, 0.08), (0.15, 0.08, 0.04), rough=0.32, scale=8.0)
+    mat_gold = make_mat("GoldBrass", (0.90, 0.72, 0.28), rough=0.22, metal=0.88)
+    mat_crystal = make_mat("RubyWine", (0.65, 0.06, 0.10), rough=0.12, metal=0.1, emit_col=(0.55, 0.04, 0.08), emit_str=0.35)
+    mat_rasputin = make_stone_mat("RasputinSculpt", (0.88, 0.84, 0.76), (0.74, 0.69, 0.61), rough=0.34, scale=5.0)
+    mat_sash_red = make_mat("CrimsonSash", (0.72, 0.09, 0.11), rough=0.45, emit_col=(0.55, 0.05, 0.07), emit_str=0.25)
+    mat_yusupov = make_stone_mat("YusupovSculpt", (0.82, 0.80, 0.76), (0.68, 0.66, 0.62), rough=0.36, scale=5.0)
 
-    for sx, sy, srz in [
-        (-2.2, -0.8, 70), (-1.45, -0.45, 80), (-1.35, -1.55, 55),
-        (-0.65, -1.75, 35), (0.05, -1.85, 10), (-1.25, 1.35, 125), (-0.45, 1.65, 155)
-    ]:
-        st_i = sen_proto.copy(); st_i.rotation_mode = 'XYZ'; st_i.hide_render = False
-        st_i.location = (sx, sy, 0.0)
-        st_i.rotation_euler = (0, 0, math.radians(srz))
-        scn.collection.objects.link(st_i)
+    # Basement Walls & Vaulted Arches
+    add_box("RearWall", (0.0, 5.8, 3.2), (14.0, 0.5, 6.6), mat_vault)
+    add_box("LeftWall", (-6.2, 0.0, 3.2), (0.5, 12.0, 6.6), mat_vault)
+    add_box("RightWall", (6.2, 0.0, 3.2), (0.5, 12.0, 6.6), mat_vault)
 
-    ld_top = bpy.data.lights.new("CrimeKey", type='AREA'); ld_top.energy = 320.0; ld_top.size = 3.8; ld_top.color = (1.0, 0.95, 0.88)
-    lo_top = bpy.data.objects.new("CrimeKey", ld_top); scn.collection.objects.link(lo_top); lo_top.location = (-2.2, -2.5, 6.2)
-    lo_top.rotation_euler = (Vector((0, 0, 0)) - lo_top.location).to_track_quat('-Z', 'Y').to_euler()
-    ld_f = bpy.data.lights.new("CrimeFill", type='AREA'); ld_f.energy = 85.0; ld_f.size = 4.5
-    lo_f = bpy.data.objects.new("CrimeFill", ld_f); scn.collection.objects.link(lo_f); lo_f.location = (2.5, 2.0, 5.0)
-    lo_f.rotation_euler = (Vector((0, 0, 0)) - lo_f.location).to_track_quat('-Z', 'Y').to_euler()
+    # Vaulted Stone Ribs across the ceiling
+    for vy in [-2.2, 1.2, 4.6]:
+        add_box(f"VaultRibL_{vy}", (-4.8, vy, 2.8), (0.65, 0.65, 5.6), mat_vault)
+        add_box(f"VaultRibR_{vy}", (4.8, vy, 2.8), (0.65, 0.65, 5.6), mat_vault)
+        add_box(f"VaultArchTop_{vy}", (0.0, vy, 5.4), (10.2, 0.60, 0.55), mat_vault)
 
-    cd = bpy.data.cameras.new("Cam"); cd.lens = 36.0
-    co = bpy.data.objects.new("Cam", cd); scn.collection.objects.link(co); scn.camera = co
-    co.location = (0.15, -3.1, 4.9)
-    co.rotation_euler = (Vector((-0.25, 0.05, 0.0)) - co.location).to_track_quat('-Z', 'Y').to_euler()
-    scn.render.filepath = OUT_PNG
-    bpy.ops.render.render(write_still=True)
+    # Rear Heavy Cellar Doors & Corinthian Pilasters
+    door_proto = load_blend_asset("bk_classic_door.blend", "DoorProto", target_height=3.8, mat=mat_walnut)
+    if door_proto:
+        door_proto.location = (0.0, 5.45, 0.0)
+
+    col_proto = load_blend_asset("bk_column_corinthian.blend", "ColProto", target_height=5.2, mat=mat_col)
+    if col_proto:
+        col_proto.hide_render = True
+        for cx in [-3.8, -1.9, 1.9, 3.8]:
+            instance_obj(col_proto, f"BgCol_{cx}", (cx, 5.2, 0.0))
+
+    # Upper Balcony / Staircase Landing at Rear where 3 Co-Conspirators Watch
+    add_box("UpperBalcony", (0.0, 4.6, 2.65), (7.6, 1.6, 0.22), mat_vault)
+    con_proto = load_blend_asset("bk_decor_man.blend", "ConProto", target_height=1.78, mat=mat_yusupov)
+    if con_proto:
+        con_proto.hide_render = True
+        for idx_c, cx in enumerate([-2.4, 0.0, 2.4]):
+            instance_obj(con_proto, f"UpperConspirator_{idx_c}", (cx, 4.5, 2.76), rot=(0, 0, math.radians(180)))
+
+    # Centerpiece Poisoned Banquet Table + Chairs + Wine Bottle + Goblets + Candelabra
+    tbl_proto = load_blend_asset("bk_table_round.blend", "TableCenter", target_height=0.84, mat=mat_walnut)
+    if tbl_proto:
+        tbl_proto.location = (0.2, 0.4, 0.0)
+        tbl_proto.scale = (1.55, 1.55, 1.08)
+
+    # Silver platter of cyanide pastries
+    add_cyl("SilverPlatter", (0.05, 0.35, 0.92), 0.24, 0.03, mat_gold, verts=32)
+    for px, py in [(-0.04, 0.32), (0.08, 0.30), (0.02, 0.42)]:
+        add_cyl(f"Pastry_{px}", (px, py, 0.96), 0.055, 0.06, mat_sash_red, verts=20)
+
+    bot_proto = load_blend_asset("bk_wine_bottle.blend", "WineBot", target_height=0.38, mat=mat_crystal)
+    if bot_proto:
+        bot_proto.location = (0.38, 0.52, 0.90)
+
+    gob_proto = load_blend_asset("bk_goblet.blend", "GobletProto", target_height=0.24, mat=mat_gold)
+    if gob_proto:
+        gob_proto.hide_render = True
+        instance_obj(gob_proto, "GobletRasputin", (-0.28, 0.32, 0.90))
+        instance_obj(gob_proto, "GobletYusupov", (0.52, 0.28, 0.90))
+
+    cand_proto = load_blend_asset("bk_candelabra.blend", "Candelabra", target_height=0.48, mat=mat_gold)
+    if cand_proto:
+        cand_proto.location = (0.20, 0.65, 0.90)
+
+    # Grigori Rasputin (Left of Table, Bearded Statue with Crimson Sash Accent)
+    ras_proto = load_blend_asset("bk_bearded_statue.blend", "RasputinMain", target_height=1.92, mat=mat_rasputin)
+    if ras_proto:
+        ras_proto.location = (-0.95, 0.45, 0.0)
+        ras_proto.rotation_euler = (0.0, 0.0, math.radians(52))
+
+    # Prince Felix Yusupov (Right of Table, Seated on Ornate Antique Chair facing Rasputin)
+    chair_proto = load_blend_asset("bk_antique_chair.blend", "ChairProto", target_height=0.92, mat=mat_walnut)
+    if chair_proto:
+        chair_proto.hide_render = True
+        instance_obj(chair_proto, "YusupovChair", (1.35, 0.40, 0.0), rot=(0, 0, math.radians(-65)))
+        instance_obj(chair_proto, "SideChairL", (-2.6, 1.4, 0.0), rot=(0, 0, math.radians(35)))
+        instance_obj(chair_proto, "SideChairR", (2.8, 1.5, 0.0), rot=(0, 0, math.radians(-35)))
+
+    yus_proto = load_blend_asset("bk_male_sitting.blend", "YusupovMain", target_height=1.42, mat=mat_yusupov)
+    if yus_proto:
+        yus_proto.location = (1.25, 0.38, 0.04)
+        yus_proto.rotation_euler = (0.0, 0.0, math.radians(-58))
+
+    # Dramatic Warm Candelabra Key + Cold Moonlight Rim Lighting
+    add_area_light("TableWarmKey", (-0.4, -1.8, 2.8), (48, 0, -10), 420.0, 2.5, (1.0, 0.80, 0.52))
+    add_area_light("MoonRimLeft", (-4.8, 2.5, 4.2), (55, 0, -55), 380.0, 3.0, (0.65, 0.78, 1.0))
+    add_area_light("BackVaultFill", (0.0, 4.2, 4.5), (-35, 0, 0), 260.0, 4.0, (0.95, 0.72, 0.45))
+    add_camera(loc=(-0.35, -4.65, 2.15), rot_deg=(74.5, 0.0, -4.0), lens=29.0)
+
+
+# ==============================================================================
+# SCENE 2: SLICED 3D MARBLE BUST OF RASPUTIN + BENTO NOIR DOSSIER
+# ==============================================================================
+elif SCENE_ID == 2:
+    setup_world((0.022, 0.012, 0.015), 1.0)
+
+    mat_marble = make_stone_mat("BustMarble", (0.90, 0.87, 0.81), (0.74, 0.70, 0.64), rough=0.26, scale=5.0)
+    mat_crimson_core = make_mat("CrimsonCore", (0.95, 0.10, 0.14), rough=0.15, emit_col=(0.98, 0.12, 0.16), emit_str=4.8)
+    mat_plinth = make_stone_mat("DarkPlinth", (0.14, 0.14, 0.17), (0.08, 0.08, 0.10), rough=0.35, scale=6.0)
+    mat_silver_halo = make_mat("SilverHalo", (0.72, 0.74, 0.78), rough=0.28, metal=0.82)
+
+    # Glowing Crimson Podium Disc + Dark Pedestal (shifted slightly right so Left Bento Card has clean room)
+    bx_center = 0.35
+    add_cyl("PodiumBase", (bx_center, 0.0, -0.06), 1.35, 0.12, mat_plinth, verts=64)
+    add_cyl("PodiumGlowRing", (bx_center, 0.0, 0.01), 1.12, 0.03, mat_crimson_core, verts=64)
+
+    # Imperial Medallion / Halo Disc behind the bust
+    add_cyl("ImperialMedallion", (bx_center, 0.65, 0.72), 0.78, 0.05, mat_silver_halo, verts=64, rot=(math.radians(90), 0, 0))
+
+    # Load Bearded Rasputin Bust and Bisect at 38° Diagonal Angle
+    bust_orig = load_blend_asset("bk_rasputin_bust.blend", "RasputinBustOrig", target_height=1.18, mat=mat_marble)
+    if bust_orig:
+        bust_orig.hide_render = True
+        plane_co = mathutils.Vector((0.0, 0.0, 0.58))
+        plane_no = mathutils.Vector((0.62, 0.0, 0.78)).normalized()
+
+        # Lower-Left Half
+        b_low = bust_orig.copy()
+        b_low.data = bust_orig.data.copy()
+        b_low.hide_render = False
+        b_low.rotation_mode = "XYZ"
+        bpy.context.collection.objects.link(b_low)
+        bm1 = bmesh.new()
+        bm1.from_mesh(b_low.data)
+        bmesh.ops.bisect_plane(
+            bm1,
+            geom=bm1.verts[:] + bm1.edges[:] + bm1.faces[:],
+            plane_co=plane_co,
+            plane_no=plane_no,
+            clear_outer=True,
+            clear_inner=False,
+        )
+        bm1.to_mesh(b_low.data)
+        bm1.free()
+        b_low.location = (bx_center - 0.06, 0.0, 0.02)
+        b_low.rotation_euler = (0.0, 0.0, math.radians(-22.0))
+
+        # Upper-Right Exploded Half
+        b_high = bust_orig.copy()
+        b_high.data = bust_orig.data.copy()
+        b_high.hide_render = False
+        b_high.rotation_mode = "XYZ"
+        bpy.context.collection.objects.link(b_high)
+        bm2 = bmesh.new()
+        bm2.from_mesh(b_high.data)
+        bmesh.ops.bisect_plane(
+            bm2,
+            geom=bm2.verts[:] + bm2.edges[:] + bm2.faces[:],
+            plane_co=plane_co,
+            plane_no=plane_no,
+            clear_outer=False,
+            clear_inner=True,
+        )
+        bm2.to_mesh(b_high.data)
+        bm2.free()
+        b_high.location = (bx_center + 0.14, 0.0, 0.18)
+        b_high.rotation_euler = (0.0, math.radians(6.0), math.radians(-22.0))
+
+        # Glowing Crimson Laser Slice Plane + Interior Core
+        add_box(
+            "CrimsonLaserStreak",
+            (bx_center + 0.04, -0.05, 0.66),
+            (1.65, 0.018, 0.022),
+            mat_crimson_core,
+            rot=(0.0, math.radians(-38.0), 0.0),
+        )
+        add_cyl(
+            "CrimsonCoreDisc",
+            (bx_center + 0.04, 0.0, 0.66),
+            0.26,
+            0.05,
+            mat_crimson_core,
+            verts=40,
+            rot=(0.0, math.radians(38.0), 0.0),
+        )
+
+    add_area_light("BustKey", (-2.4, -2.8, 2.2), (55, 0, -35), 260.0, 2.2, (1.0, 0.95, 0.90))
+    add_area_light("BustRimRed", (2.5, 1.5, 1.8), (60, 0, 130), 340.0, 2.0, (1.0, 0.18, 0.22))
+    add_camera(loc=(0.0, -3.55, 0.68), rot_deg=(87.5, 0.0, 0.0), lens=36.0)
+
+
+# ==============================================================================
+# SCENE 3: 3D TILTED TOPOGRAPHIC RELIEF MAP OF RUSSIA & EASTERN FRONT (1916)
+# ==============================================================================
+elif SCENE_ID == 3:
+    setup_world((0.010, 0.012, 0.018), 1.0)
+
+    mat_grid = make_mat("GridWire", (0.75, 0.80, 0.88), rough=0.2, emit_col=(0.75, 0.80, 0.88), emit_str=0.85)
+    mat_russia_blue = make_mat("RussiaBlue", (0.14, 0.34, 0.62), rough=0.35, emit_col=(0.16, 0.42, 0.78), emit_str=0.95)
+    mat_front_red = make_mat("FrontCrimson", (0.78, 0.12, 0.15), rough=0.32, emit_col=(0.88, 0.14, 0.18), emit_str=1.25)
+    mat_neutral_dark = make_mat("NeutralDark", (0.16, 0.18, 0.22), rough=0.45, emit_col=(0.18, 0.20, 0.25), emit_str=0.45)
+    mat_gold_pin = make_mat("GoldPin", (1.0, 0.82, 0.28), rough=0.15, emit_col=(1.0, 0.82, 0.28), emit_str=3.5)
+    mat_arrow_red = make_mat("ArrowRed", (0.95, 0.18, 0.20), rough=0.2, emit_col=(0.95, 0.18, 0.20), emit_str=2.6)
+
+    # 1. Explicit 3D Perspective Grid Lines in Dark Void (Z = 0.0)
+    for gx in range(-12, 13, 1):
+        add_box(f"GridX_{gx}", (gx * 0.75, 0.0, 0.0), (0.016, 15.0, 0.008), mat_grid)
+    for gy in range(-10, 11, 1):
+        add_box(f"GridY_{gy}", (0.0, gy * 0.75, 0.0), (18.0, 0.016, 0.008), mat_grid)
+
+    # 2. Load Real Geographic Borders of Russia & Eastern Europe (russia_eastern_front_50m.geojson)
+    geo_path = os.path.join(ASSETS_DIR, "russia_eastern_front_50m.geojson")
+    if os.path.exists(geo_path):
+        with open(geo_path, "r") as f:
+            gdata = json.load(f)
+
+        # Map projection: lon 14..46 -> X -5.5..+6.5, lat 45..63 -> Y -4.5..+4.5
+        def proj(lon, lat):
+            x = (lon - 28.0) * 0.36 + 0.8
+            y = (lat - 54.5) * 0.48
+            return x, y
+
+        russian_heartland = {"Russia", "Finland", "Estonia", "Latvia", "Belarus", "Ukraine"}
+        eastern_front = {"Germany", "Poland", "Lithuania", "Austria", "Hungary", "Romania"}
+
+        for feat in gdata.get("features", []):
+            cname = feat.get("properties", {}).get("NAME", "")
+            geom = feat.get("geometry", {})
+            gtype = geom.get("type")
+            coords = geom.get("coordinates", [])
+            polys = coords if gtype == "MultiPolygon" else [coords]
+
+            if cname in russian_heartland:
+                cmat = mat_russia_blue
+                z_off = 0.08
+                ext = 0.14
+            elif cname in eastern_front:
+                cmat = mat_front_red
+                z_off = 0.11
+                ext = 0.16
+            else:
+                cmat = mat_neutral_dark
+                z_off = 0.05
+                ext = 0.09
+
+            curve_data = bpy.data.curves.new(f"Map_{cname}", type="CURVE")
+            curve_data.dimensions = "2D"
+            curve_data.fill_mode = "BOTH"
+            curve_data.extrude = ext
+            curve_data.bevel_depth = 0.015
+
+            has_pts = False
+            for poly in polys:
+                if not poly:
+                    continue
+                ring = poly[0]
+                pts = []
+                # Skip tiny far-east islands outside European Russia
+                lons = [pt[0] for pt in ring]
+                lats = [pt[1] for pt in ring]
+                if max(lons) < 11.0 or min(lons) > 48.0 or max(lats) < 43.0 or min(lats) > 66.0:
+                    continue
+                for pt in ring:
+                    lon = min(max(pt[0], 11.0), 46.5)
+                    lat = min(max(pt[1], 43.5), 64.5)
+                    pts.append(proj(lon, lat))
+                if len(pts) >= 4:
+                    spline = curve_data.splines.new("POLY")
+                    spline.points.add(len(pts) - 1)
+                    for idx_p, (px, py) in enumerate(pts):
+                        spline.points[idx_p].co = (px, py, 0.0, 1.0)
+                    spline.use_cyclic_u = True
+                    has_pts = True
+
+            if has_pts:
+                cobj = bpy.data.objects.new(f"Country_{cname}", curve_data)
+                cobj.rotation_mode = "XYZ"
+                cobj.location = (0.0, 0.0, z_off)
+                cobj.data.materials.append(cmat)
+                bpy.context.collection.objects.link(cobj)
+
+        # Glowing Beacon at Petrograd (59.93°N, 30.33°E)
+        px, py = proj(30.33, 59.93)
+        add_cyl("PetrogradPinBase", (px, py, 0.26), 0.28, 0.08, mat_gold_pin, verts=32)
+        add_cyl("PetrogradBeacon", (px, py, 0.65), 0.06, 0.80, mat_gold_pin, verts=20)
+
+        # Glowing Frontline Converging Arrows toward Petrograd
+        for sx, sy, rot_z in [(-1.2, 0.2, -32), (-0.4, -1.6, -15), (2.4, -0.8, 22)]:
+            add_box(
+                f"PlotArrow_{sx}",
+                ((sx + px) * 0.5, (sy + py) * 0.5, 0.28),
+                (0.08, math.hypot(px - sx, py - sy) * 0.75, 0.04),
+                mat_arrow_red,
+                rot=(0, 0, math.radians(rot_z)),
+            )
+
+    add_area_light("MapKey", (0.0, -6.0, 8.0), (35, 0, 0), 650.0, 6.0, (0.85, 0.90, 1.0))
+    add_camera(loc=(0.2, -7.8, 6.8), rot_deg=(46.0, 0.0, 0.0), lens=32.0)
+
+
+# ==============================================================================
+# SCENE 4: 90° TOP-DOWN FORENSIC CRIME SCENE (FALLEN RASPUTIN + REVOLVER)
+# ==============================================================================
+elif SCENE_ID == 4:
+    setup_world((0.012, 0.013, 0.018), 1.0)
+
+    # Checkered marble courtyard/basement floor + crimson carpet runner
+    make_curia_carpet_and_border_floor()
+
+    mat_blood = make_mat("ForensicBlood", (0.52, 0.02, 0.03), rough=0.08, metal=0.05, emit_col=(0.42, 0.01, 0.02), emit_str=0.25)
+    mat_rasputin_fallen = make_stone_mat("FallenRasputin", (0.88, 0.84, 0.78), (0.72, 0.68, 0.62), rough=0.32, scale=5.0)
+    mat_gun_steel = make_mat("Gunmetal", (0.72, 0.74, 0.78), rough=0.22, metal=0.88, emit_col=(0.72, 0.74, 0.78), emit_str=0.25)
+    mat_gold_brass = make_mat("BrassShell", (0.95, 0.78, 0.30), rough=0.18, metal=0.90, emit_col=(0.95, 0.78, 0.30), emit_str=0.45)
+    mat_walnut = make_stone_mat("ChairWalnut", (0.28, 0.16, 0.09), (0.18, 0.10, 0.05), rough=0.32, scale=6.0)
+    mat_conspirator = make_stone_mat("ConspiratorStone", (0.78, 0.76, 0.72), (0.62, 0.60, 0.56), rough=0.38, scale=5.0)
+
+    # 1. Stepped-Z Glossy Crimson Blood Pool (Zero Coplanar Z-Fighting!)
+    lobes = [
+        (0.0, 0.0, 0.95, 0.75, 0.006),
+        (-0.42, 0.18, 0.62, 0.48, 0.008),
+        (0.38, -0.22, 0.58, 0.44, 0.010),
+        (0.15, 0.42, 0.45, 0.36, 0.012),
+    ]
+    for idx_l, (lx, ly, rx, ry, lz) in enumerate(lobes):
+        c = add_cyl(f"BloodLobe_{idx_l}", (lx, ly, lz), 1.0, 0.003, mat_blood, verts=48)
+        c.scale = (rx, ry, 1.0)
+
+    # 2. Fallen Grigori Rasputin Lying Horizontally in Center of Blood Pool
+    ras_fallen = load_blend_asset("bk_bearded_statue.blend", "FallenRasputinMesh", target_height=1.88, mat=mat_rasputin_fallen)
+    if ras_fallen:
+        # Shift Z by -0.94m so rotation is around his waist/torso center
+        for v in ras_fallen.data.vertices:
+            v.co.z -= 0.94
+        ras_fallen.data.update()
+        ras_fallen.rotation_mode = "XYZ"
+        ras_fallen.location = (-0.08, 0.06, 0.24)
+        ras_fallen.rotation_euler = (math.radians(88.0), math.radians(12.0), math.radians(52.0))
+
+    # 3. Dropped Webley .455 Revolver + 3 Spent Brass Shell Casings beside the Blood Pool
+    rev_obj = load_blend_asset("bk_revolver.blend", "CrimeRevolver", target_height=0.52, mat=mat_gun_steel)
+    if rev_obj:
+        rev_obj.location = (0.72, -0.28, 0.02)
+        rev_obj.rotation_euler = (0.0, 0.0, math.radians(-34.0))
+
+    for idx_s, (sx, sy) in enumerate([(0.55, -0.45), (0.88, -0.18), (0.64, -0.62)]):
+        add_cyl(f"ShellCasing_{idx_s}", (sx, sy, 0.018), 0.022, 0.065, mat_gold_brass, verts=16, rot=(math.radians(90), 0, math.radians(idx_s * 47)))
+
+    # 4. Overturned Antique Chair & Spilled Wine Goblet
+    chair_ov = load_blend_asset("bk_antique_chair.blend", "OverturnedChair", target_height=0.95, mat=mat_walnut)
+    if chair_ov:
+        for v in chair_ov.data.vertices:
+            v.co.z -= 0.45
+        chair_ov.data.update()
+        chair_ov.location = (-1.28, 0.62, 0.32)
+        chair_ov.rotation_euler = (math.radians(82.0), math.radians(-18.0), math.radians(38.0))
+
+    gob_spilled = load_blend_asset("bk_goblet.blend", "SpilledGoblet", target_height=0.26, mat=mat_gold_brass)
+    if gob_spilled:
+        gob_spilled.location = (-0.75, -0.48, 0.05)
+        gob_spilled.rotation_euler = (math.radians(86.0), 0.0, math.radians(115.0))
+
+    # 5. Neoclassical Pedestal Base + Ring of 4 Conspirators Casting Long Shadows
+    add_cyl("CourtyardPillarBase", (0.0, 1.85, 0.35), 0.68, 0.70, mat_conspirator, verts=48)
+    add_3d_text("YUSUPOV PALACE", (0.0, 1.85, 0.72), 0.18, mat_gold_brass, rot=(0, 0, 0), extrude=0.02)
+
+    con_proto = load_blend_asset("bk_decor_man.blend", "ConspiratorRingProto", target_height=1.78, mat=mat_conspirator)
+    if con_proto:
+        con_proto.hide_render = True
+        ring_positions = [
+            (-2.15, 0.95, -28),
+            (-1.85, -1.05, -125),
+            (1.95, 0.85, 32),
+            (1.85, -1.10, 130),
+        ]
+        for idx_r, (rx, ry, rz) in enumerate(ring_positions):
+            instance_obj(con_proto, f"RingConspirator_{idx_r}", (rx, ry, 0.0), rot=(0, 0, math.radians(rz)))
+
+    # 6. Trail of Bloody Footprints Leading Toward the Moika River Gate
+    footprints = [
+        (0.35, -0.55), (0.62, -0.82), (0.92, -1.05),
+        (1.22, -1.28), (1.55, -1.48), (1.88, -1.68),
+    ]
+    for idx_f, (fx, fy) in enumerate(footprints):
+        fp = add_cyl(f"BloodFoot_{idx_f}", (fx, fy, 0.007), 0.09, 0.002, mat_blood, verts=20)
+        fp.scale = (1.4, 0.65, 1.0)
+        fp.rotation_euler = (0.0, 0.0, math.radians(-32.0))
+
+    add_area_light("CrimeTopSpot", (0.4, -0.5, 5.2), (12, 8, 0), 580.0, 2.8, (1.0, 0.90, 0.76))
+    add_area_light("CrimeRimCold", (-3.5, 2.5, 3.8), (45, 0, -40), 320.0, 3.5, (0.68, 0.80, 1.0))
+    add_camera(loc=(0.0, -0.25, 5.35), rot_deg=(3.0, 0.0, 0.0), lens=34.0)
+
+scene.render.filepath = OUT_PATH
+bpy.ops.render.render(write_still=True)
+print(f"Rendered Rasputin Scene {SCENE_ID} to {OUT_PATH}")
