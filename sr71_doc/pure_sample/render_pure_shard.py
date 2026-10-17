@@ -2,16 +2,13 @@ import bpy, math, os, sys, json
 from mathutils import Vector
 from bpy_extras.object_utils import world_to_camera_view
 
-argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else ["0", "15", "/tmp/out"]
+argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else ["0", "9", "/tmp/out"]
 F_START = int(argv[0])
 F_END   = int(argv[1])
 OUT_DIR = argv[2]
 os.makedirs(OUT_DIR, exist_ok=True)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "f110_engine", "engine"))
-import materials as mats
-
 COORDS = {}
 
 def smoothstep(t):
@@ -22,7 +19,7 @@ def project_pt(scn, cam_o, pt3d):
     co = world_to_camera_view(scn, cam_o, Vector(pt3d))
     return [round(co.x * 1920, 1), round((1.0 - co.y) * 1080, 1)]
 
-def init_cycles_1080p(samples=32, exposure=0.0):
+def init_cycles_1080p(samples=16, exposure=0.0):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scn = bpy.context.scene
     scn.render.engine = 'CYCLES'
@@ -31,11 +28,11 @@ def init_cycles_1080p(samples=32, exposure=0.0):
     scn.cycles.use_denoising = True
     scn.cycles.denoiser = 'OPENIMAGEDENOISE'
     scn.cycles.denoising_input_passes = 'RGB_ALBEDO_NORMAL'
-    scn.cycles.denoising_prefilter = 'ACCURATE'
-    scn.cycles.max_bounces = 3
+    scn.cycles.denoising_prefilter = 'FAST'
+    scn.cycles.max_bounces = 2
     scn.cycles.diffuse_bounces = 1
-    scn.cycles.glossy_bounces = 2
-    scn.cycles.transparent_max_bounces = 4
+    scn.cycles.glossy_bounces = 1
+    scn.cycles.transparent_max_bounces = 2
     scn.cycles.sample_clamp_direct = 6.0
     scn.cycles.sample_clamp_indirect = 3.0
     scn.render.use_persistent_data = True
@@ -53,35 +50,46 @@ def init_cycles_1080p(samples=32, exposure=0.0):
     bg.inputs["Strength"].default_value = 1.0
     return scn
 
-# =========================================================================
-# SHOT 1 (Frames 0..149): Calibrated J58 / F110 Cutaway + Spike + Rotors
-# =========================================================================
+def build_clean_alloys():
+    palette = {
+        "titanium":        ((0.46, 0.48, 0.51), 0.90, 0.24),
+        "casing_alloy":    ((0.28, 0.30, 0.33), 0.86, 0.32),
+        "hot_nickel":      ((0.28, 0.23, 0.19), 0.84, 0.30),
+        "thermal_barrier": ((0.74, 0.71, 0.65), 0.08, 0.58),
+        "steel":           ((0.62, 0.63, 0.65), 0.94, 0.18),
+    }
+    out = {}
+    for name, (rgb, met, rough) in palette.items():
+        m = bpy.data.materials.new(name)
+        m.use_nodes = True
+        bsdf = m.node_tree.nodes.get("Principled BSDF")
+        bsdf.inputs["Base Color"].default_value = (*rgb, 1.0)
+        bsdf.inputs["Metallic"].default_value = met
+        bsdf.inputs["Roughness"].default_value = rough
+        out[name] = m
+    return out
+
 s1_frames = [f for f in range(F_START, F_END) if 0 <= f < 150]
 if s1_frames:
-    scn = init_cycles_1080p(samples=28, exposure=-0.55)
+    scn = init_cycles_1080p(samples=16, exposure=-0.55)
     bpy.ops.import_scene.gltf(filepath=os.path.join(ROOT, "f110_engine", "build", "f110_web.glb"))
     objs = [o for o in scn.objects if o.type == 'MESH']
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 
-    lib = mats.build_all()
+    lib = build_clean_alloys()
 
-    # Exact Boolean Section Cutter from f110_engine/engine/render.py
     bpy.ops.mesh.primitive_cube_add(size=1.0, location=(1.9, -0.82, 0.12))
     cutter = bpy.context.active_object
     cutter.name = "__section_cutter"
     cutter.scale = (9.0, 1.64, 2.2)
-    cutter.hide_render = True
-    for attr in ("visible_camera", "visible_diffuse", "visible_glossy", "visible_shadow"):
-        if hasattr(cutter, attr): setattr(cutter, attr, False)
 
     CUT_PATTERNS = ("casing_", "flange_", "inlet_case", "inlet_lip",
                     "bypass_inner_wall", "augmentor_liner", "combustor_liner_outer",
                     "nozzle_ext_flaps", "nozzle_seals", "splitter", "mixer")
 
     rotor_objs = []
-    exploded_offsets = {}
     for o in objs:
         nm = o.name.lower()
         for p in o.data.polygons: p.use_smooth = True
@@ -106,15 +114,17 @@ if s1_frames:
             mod.operation = "DIFFERENCE"
             mod.solver = "FAST"
             mod.object = cutter
+            bpy.context.view_layer.objects.active = o
+            bpy.ops.object.modifier_apply(modifier="Cutaway")
 
-    # J58 Translating Inlet Spike
+    bpy.data.objects.remove(cutter, do_unlink=True)
+
     bpy.ops.mesh.primitive_cone_add(vertices=64, radius1=0.36, radius2=0.0, depth=1.65,
                                     location=(-1.62, 0, 0), rotation=(0, math.radians(-90), 0))
     spike = bpy.context.active_object
     for p in spike.data.polygons: p.use_smooth = True
     spike.data.materials.append(lib["casing_alloy"])
 
-    # J58 External Bleed-Bypass Tubes
     for ang_deg in [65, 115, 245, 295]:
         ang = math.radians(ang_deg)
         curve_d = bpy.data.curves.new(f"Bleed_{ang_deg}", type='CURVE')
@@ -130,7 +140,6 @@ if s1_frames:
         scn.collection.objects.link(co)
         co.data.materials.append(lib["hot_nickel"])
 
-    # Studio Floor
     bpy.ops.mesh.primitive_plane_add(size=80.0, location=(1.8, 0, -0.82))
     floor = bpy.context.active_object
     fmat = bpy.data.materials.new("Floor"); fmat.use_nodes = True
@@ -151,42 +160,34 @@ if s1_frames:
     area_light("rim",  (X_MID + 8.0, 4.0, 4.2),  (math.radians(64), 0, math.radians(116)), 2600, 5.0)
     area_light("bore", (X_MID - 0.4, -4.2, 1.2), (math.radians(74), 0, 0), 1500, 8.0)
 
-    cam_d = bpy.data.cameras.new("Cam"); cam_d.lens = 72.0
+    cam_d = bpy.data.cameras.new("Cam"); cam_d.lens = 62.0
     cam_o = bpy.data.objects.new("Cam", cam_d)
     scn.collection.objects.link(cam_o); scn.camera = cam_o
 
     for f in s1_frames:
         u = smoothstep(f / 149.0)
-        # Smooth cutaway reveal (first 40 frames peel open the outer casing) + Inlet Spike translation
-        cut_u = smoothstep(min(1.0, (f + 15) / 50.0))
-        cutter.location.y = -1.70 + 0.88 * cut_u
-
         spike_x = -1.65 + 0.55 * u
         spike.location.x = spike_x
 
-        # Anti-strobe smooth blade rotation (0.016 rad/frame -> crisp blades on every single frame)
         for ro, sdir in rotor_objs:
             ro.rotation_euler.x = f * 0.016 * sdir
 
-        cam_o.location = (-2.4 + 1.15 * u, -7.8 + 0.70 * u, 2.45 - 0.25 * u)
-        target = Vector((1.35 + 0.40 * u, 0.0, 0.0))
+        cam_o.location = (-2.6 + 1.15 * u, -8.2 + 0.65 * u, 2.55 - 0.25 * u)
+        target = Vector((1.30 + 0.35 * u, 0.0, -0.02))
         cam_o.rotation_euler = (target - cam_o.location).to_track_quat('-Z', 'Y').to_euler()
         bpy.context.view_layer.update()
 
         COORDS[str(f)] = {
-            "spike": project_pt(scn, cam_o, (spike_x - 0.35, 0.0, 0.0)),
-            "bypass": project_pt(scn, cam_o, (1.15, -0.32, 0.67)),
-            "combustor": project_pt(scn, cam_o, (1.85, -0.25, -0.05)),
+            "spike":     project_pt(scn, cam_o, (spike_x - 0.25, 0.0, 0.12)),
+            "bypass":    project_pt(scn, cam_o, (1.25, -0.25, 0.72)),
+            "combustor": project_pt(scn, cam_o, (1.85, -0.22, -0.35)),
         }
         scn.render.filepath = os.path.join(OUT_DIR, f"raw_{f:04d}.png")
         bpy.ops.render.render(write_still=True)
 
-# =========================================================================
-# SHOT 2 (Frames 150..299) & SHOT 3 (Frames 300..449): Blackbird.glb
-# =========================================================================
 s23_frames = [f for f in range(F_START, F_END) if 150 <= f < 450]
 if s23_frames:
-    scn = init_cycles_1080p(samples=24, exposure=0.0)
+    scn = init_cycles_1080p(samples=16, exposure=0.0)
     bpy.ops.import_scene.gltf(filepath=os.path.join(ROOT, "models3d", "Blackbird.glb"))
     objs = [o for o in scn.objects if o.type == 'MESH']
     bpy.ops.object.select_all(action='SELECT')
@@ -267,10 +268,7 @@ if s23_frames:
             target = Vector((0.0, -0.85 + 0.85 * u, 0.55))
             cam_o.rotation_euler = (target - cam_o.location).to_track_quat('-Z', 'Y').to_euler()
             bpy.context.view_layer.update()
-            COORDS[str(f)] = {
-                "chine": project_pt(scn, cam_o, (0.48, -0.95, 0.52)),
-                "nacelle": project_pt(scn, cam_o, (1.28, 0.55, 0.65)),
-            }
+            COORDS[str(f)] = {}
         else:
             cam_d.lens = 28.0
             u = smoothstep((f - 300) / 149.0)
@@ -278,10 +276,7 @@ if s23_frames:
             target = Vector((0.0, -2.69, 0.618))
             cam_o.rotation_euler = (target - cam_o.location).to_track_quat('-Z', 'Y').to_euler()
             bpy.context.view_layer.update()
-            COORDS[str(f)] = {
-                "mach": project_pt(scn, cam_o, (-0.042, -2.685, 0.642)),
-                "egt":  project_pt(scn, cam_o, (0.082, -2.685, 0.602)),
-            }
+            COORDS[str(f)] = {}
         scn.render.filepath = os.path.join(OUT_DIR, f"raw_{f:04d}.png")
         bpy.ops.render.render(write_still=True)
 
