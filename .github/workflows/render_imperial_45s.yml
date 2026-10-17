@@ -1,99 +1,77 @@
-name: Render Imperial 45s Golden Masterpiece (20 Turbo 3D Shards)
-
+name: Render Rasputin 1916 Imperial 50s 1080p Masterpiece (20 Shards)
 on:
   workflow_dispatch:
 
 jobs:
-  render_shards:
+  render_3d_shards:
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
         shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Blender 4.3.2 & Python Dependencies
+      - name: Install Blender 4.3.2 & System Libraries
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y ffmpeg libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libxkbcommon0 libsm6 libice6
-          pip install numpy opencv-python-headless Pillow
-          curl -sL https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
-          tar -xf /tmp/blender.tar.xz -C /tmp/
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libxi6 libxrender1 libxxf86vm1 libxfixes3 libxkbcommon0 libsm6 libice6 libgl1
+          curl -sL https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz | sudo tar -xJ -C /opt/
+          sudo ln -sf /opt/blender-4.3.2-linux-x64/blender /usr/local/bin/blender
 
-      - name: Render 45-Frame 3D Shard & Composite Overlay
+      - name: Render 75 Animated 3D Cycles Frames for Shard ${{ matrix.shard }}
         run: |
-          /tmp/blender-4.3.2-linux-x64/blender -b -P imperial_45s/render_imperial_3d_shard.py -- ${{ matrix.shard }}
-          python3 imperial_45s/render_imperial_compositor.py ${{ matrix.shard }}
+          START_F=$(( ${{ matrix.shard }} * 75 ))
+          END_F=$(( START_F + 74 ))
+          mkdir -p /tmp/shard_frames
+          echo "Rendering frames $START_F to $END_F..."
+          blender -b -P imperial_45s/render_rasputin_3d_shard.py -- $START_F $END_F /tmp/shard_frames --preview
+          ls -lh /tmp/shard_frames | head -n 10
+          echo "Total frames rendered in shard: $(ls -1 /tmp/shard_frames/*.png | wc -l)"
 
-      - name: Upload Shard MP4
+      - name: Upload Shard Frames
         uses: actions/upload-artifact@v4
         with:
-          name: imperial-part-${{ matrix.shard }}
-          path: /tmp/part_*.mp4
-          if-no-files-found: error
+          name: rasputin-3d-shard-${{ matrix.shard }}
+          path: /tmp/shard_frames/*.png
 
-  stitch_master:
-    needs: render_shards
+  assemble_masterpiece:
+    needs: render_3d_shards
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Download All 20 3D Parts
+      - name: Install Compositor Dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+          pip install -q pillow numpy
+
+      - name: Download All 20 Shards (1500 Frames)
         uses: actions/download-artifact@v4
         with:
-          pattern: imperial-part-*
-          path: /tmp/shards
+          path: /tmp/all_3d_frames
+          pattern: rasputin-3d-shard-*
           merge-multiple: true
 
-      - name: Render 2.5D Noir Segments & Concatenate Full 48s 1080p Masterpiece
+      - name: Composite 1080p Noir Graphics, Mix Audio & Encode Masterpiece MP4
         run: |
-          sudo apt-get update -y && sudo apt-get install -y ffmpeg
-          pip install numpy opencv-python-headless Pillow
-          python3 imperial_45s/render_imperial_compositor.py --render-25d-all /tmp/shards
-          ls -lh /tmp/shards/part_*.mp4
+          echo "Downloaded 3D frames count: $(ls -1 /tmp/all_3d_frames/*.png | wc -l)"
+          mkdir -p /tmp/final_out
+          python3 imperial_45s/render_rasputin_compositor.py \
+            /tmp/all_3d_frames \
+            /tmp/final_out/Rasputin_1916_Imperial_Masterpiece_1080p.mp4 \
+            /tmp/final_out/Rasputin_1916_QA_5Panel.jpg
+          ls -lh /tmp/final_out/
 
-          rm -f /tmp/concat.txt
-          for f in $(ls /tmp/shards/part_*.mp4 | sort); do
-            test -s "$f"
-            echo "file '$f'" >> /tmp/concat.txt
-          done
-          cat /tmp/concat.txt
-
-          ffmpeg -y -f concat -safe 0 -i /tmp/concat.txt -c copy /tmp/video_concat.mp4
-          ffmpeg -y \
-            -i /tmp/video_concat.mp4 \
-            -i imperial_45s/vo/imperial_45s_vo.mp3 \
-            -f lavfi -i "anoisesrc=color=brown:amplitude=0.008:duration=48" \
-            -filter_complex "[1:a]volume=1.55[vo];[2:a]lowpass=f=140[amb];[vo][amb]amix=inputs=2:duration=first[aout]" \
-            -map 0:v:0 -map "[aout]" \
-            -c:v copy -c:a aac -b:a 192k -shortest \
-            /tmp/Imperial_IdesOfMarch_45s_Masterpiece_1080p.mp4
-          ls -lh /tmp/Imperial_IdesOfMarch_45s_Masterpiece_1080p.mp4
-
-          python3 -c '
-          import cv2, numpy as np
-          cap = cv2.VideoCapture("/tmp/Imperial_IdesOfMarch_45s_Masterpiece_1080p.mp4")
-          fps = cap.get(cv2.CAP_PROP_FPS)
-          times = [2.5, 9.0, 16.5, 19.5, 22.5, 27.5, 34.8, 37.8, 44.5]
-          w, h = 640, 360
-          grid = np.zeros((3*h, 3*w, 3), dtype=np.uint8)
-          for i, t in enumerate(times):
-              cap.set(cv2.CAP_PROP_POS_FRAMES, int(t * fps))
-              ret, fr = cap.read()
-              if ret:
-                  r, c = i // 3, i % 3
-                  grid[r*h:(r+1)*h, c*w:(c+1)*w] = cv2.resize(fr, (w, h), interpolation=cv2.INTER_AREA)
-          cv2.imwrite("/tmp/Imperial_45s_QA_9Panel.jpg", grid, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
-          '
-
-      - name: Upload Final 1080p Masterpiece & QA Sheet
+      - name: Upload Final 1080p Masterpiece Video & QA Sheet
         uses: actions/upload-artifact@v4
         with:
-          name: Imperial-IdesOfMarch-45s-Masterpiece-1080p
+          name: Rasputin-1916-Imperial-Masterpiece-1080p
           path: |
-            /tmp/Imperial_IdesOfMarch_45s_Masterpiece_1080p.mp4
-            /tmp/Imperial_45s_QA_9Panel.jpg
-          if-no-files-found: error
+            /tmp/final_out/Rasputin_1916_Imperial_Masterpiece_1080p.mp4
+            /tmp/final_out/Rasputin_1916_QA_5Panel.jpg
