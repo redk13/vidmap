@@ -1,0 +1,102 @@
+name: SR71 Full 7-Min Pure Primal Space 1080p Masterpiece
+
+on:
+  workflow_dispatch:
+
+jobs:
+  render_18_pure_cad_shards:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Blender 4.3.2
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1
+          curl -sL https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz | tar -xJ -C /var/tmp/
+      - name: Render 50 Fast 1080p Pure Blender Frames
+        run: |
+          mkdir -p /var/tmp/cad_out
+          /var/tmp/blender-4.3.2-linux-x64/blender -b -P sr71_doc/pure_full7m/render_extra_cad_shard.py -- ${{ matrix.shard }} /var/tmp/cad_out
+      - name: Upload CAD Frames
+        uses: actions/upload-artifact@v4
+        with:
+          name: cad-pure-shard-${{ matrix.shard }}
+          path: /var/tmp/cad_out/*.png
+
+  render_20_master_shards:
+    needs: render_18_pure_cad_shards
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download All 18 CAD Shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: cad-pure-shard-*
+          path: /var/tmp/cad_all
+          merge-multiple: true
+      - name: Unpack Prebaked Scenes 0..2 & Render 641 Master Frames
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg python3-opencv python3-pil python3-numpy
+          python3 - << 'PY'
+          import cv2, os
+          cap = cv2.VideoCapture("sr71_doc/pure_full7m/prebaked_3scenes_450f.mp4")
+          for s_id in range(3):
+              for f in range(150):
+                  ret, fr = cap.read()
+                  if ret:
+                      cv2.imwrite(f"/var/tmp/cad_all/s{s_id}_{f:04d}.jpg", fr, [int(cv2.IMWRITE_JPEG_QUALITY), 96])
+          cap.release()
+          PY
+          S=${{ matrix.shard }}
+          F_START=$(( S * 640 + 1 ))
+          if [ "$S" -eq 19 ]; then
+            F_END=12810
+          else
+            F_END=$(( (S + 1) * 640 ))
+          fi
+          mkdir -p /var/tmp/m_out
+          python3 sr71_doc/pure_full7m/render_pure_master_shard.py $F_START $F_END /var/tmp/cad_all /var/tmp/m_out
+          ffmpeg -y -start_number $F_START -framerate 30 -i /var/tmp/m_out/frame_%05d.jpg \
+            -c:v libx264 -preset fast -crf 15 -pix_fmt yuv420p /var/tmp/m_out/mshard_${S}.mp4
+      - name: Upload Master Video Shard
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-pure-shard-${{ matrix.shard }}
+          path: /var/tmp/m_out/mshard_${{ matrix.shard }}.mp4
+
+  assemble_full_7min_masterpiece:
+    needs: render_20_master_shards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download All 20 Master Shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: master-pure-shard-*
+          path: /var/tmp/m_all
+          merge-multiple: true
+      - name: Concatenate Full 7-Min Video + Master Audio
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          rm -f /var/tmp/concat.txt
+          for i in $(seq 0 19); do
+            echo "file '/var/tmp/m_all/mshard_${i}.mp4'" >> /var/tmp/concat.txt
+          done
+          ffmpeg -y -f concat -safe 0 -i /var/tmp/concat.txt -i sr71_doc/vo/master_audio.mp3 \
+            -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart \
+            /var/tmp/SR71_Blackbird_Pure_PrimalSpace_Full7Min_1080p.mp4
+          ls -lh /var/tmp/SR71_Blackbird_Pure_PrimalSpace_Full7Min_1080p.mp4
+      - name: Upload Final Full 7-Min Masterpiece
+        uses: actions/upload-artifact@v4
+        with:
+          name: SR71_Blackbird_Pure_PrimalSpace_Full7Min_1080p
+          path: /var/tmp/SR71_Blackbird_Pure_PrimalSpace_Full7Min_1080p.mp4
