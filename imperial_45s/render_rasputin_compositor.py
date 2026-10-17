@@ -165,8 +165,8 @@ def composite_frame(frame_idx, raw_img):
         d.text((74, 976), "1916  //  01:15 AM", fill=(225, 65, 68, alpha), font=FONTS["h3"])
 
         # Tracked Callout 1: Grigori Rasputin
-        rx = int(lerp(725, 705, u))
-        ry = int(lerp(420, 405, u))
+        rx = int(lerp(525, 505, u))
+        ry = int(lerp(385, 370, u))
         draw_tracked_callout(
             d,
             (rx, ry),
@@ -179,8 +179,8 @@ def composite_frame(frame_idx, raw_img):
         )
 
         # Tracked Callout 2: Prince Felix Yusupov
-        yx = int(lerp(1165, 1190, u))
-        yy = int(lerp(475, 460, u))
+        yx = int(lerp(1415, 1440, u))
+        yy = int(lerp(495, 480, u))
         draw_tracked_callout(
             d,
             (yx, yy),
@@ -193,8 +193,8 @@ def composite_frame(frame_idx, raw_img):
         )
 
         # Tracked Callout 3: Cyanide Madeira Wine & Pastries
-        tx_p = int(lerp(965, 975, u))
-        ty_p = int(lerp(525, 515, u))
+        tx_p = int(lerp(945, 955, u))
+        ty_p = int(lerp(540, 530, u))
         draw_tracked_callout(
             d,
             (tx_p, ty_p),
@@ -370,11 +370,11 @@ def composite_frame(frame_idx, raw_img):
         )
 
         # Blood Trail Callout
-        bx_t, by_t = int(lerp(1180, 1145, u)), int(lerp(780, 735, u))
+        bx_t, by_t = int(lerp(1160, 1135, u)), int(lerp(340, 360, u))
         draw_tracked_callout(
             d,
             (bx_t, by_t),
-            (1320, 820),
+            (1320, 290),
             (460, 78),
             "FORENSIC EVIDENCE // 03",
             "BLOOD TRAIL TO MOIKA RIVER",
