@@ -1,0 +1,99 @@
+name: Render Imperial 45s Golden Masterpiece (16 Shards)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  render_shards:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Blender 4.3.2 & Python Dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libkbcommon0 libsm6 libice6
+          pip install numpy opencv-python-headless Pillow
+          # Only install Blender on shards that render 3D scenes (0,1,2,3,6,10,11,13,14,15)
+          if [[ " 0 1 2 3 6 10 11 13 14 15 " =~ " ${{ matrix.shard }} " ]]; then
+            curl -sL https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+            tar -xf /tmp/blender.tar.xz -C /tmp/
+          fi
+
+      - name: Render 3D & Composite 2.5D Noir Shard
+        run: |
+          if [[ " 0 1 2 3 6 10 11 13 14 15 " =~ " ${{ matrix.shard }} " ]]; then
+            /tmp/blender-4.3.2-linux-x64/blender -b -P imperial_45s/render_imperial_3d_shard.py -- ${{ matrix.shard }}
+          fi
+          python3 imperial_45s/render_imperial_compositor.py ${{ matrix.shard }}
+
+      - name: Upload Shard MP4
+        uses: actions/upload-artifact@v4
+        with:
+          name: imperial-shard-${{ matrix.shard }}
+          path: /tmp/shard_*.mp4
+          if-no-files-found: error
+
+  stitch_master:
+    needs: render_shards
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download All 16 Shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: imperial-shard-*
+          path: /tmp/shards
+          merge-multiple: true
+
+      - name: Concatenate 16 Shards & Mux Voiceover + Subtle Noir Ambience
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y ffmpeg python3-opencv python3-numpy
+          rm -f /tmp/concat.txt
+          for i in $(seq -f "%02g" 0 15); do
+            test -s "/tmp/shards/shard_${i}.mp4"
+            echo "file '/tmp/shards/shard_${i}.mp4'" >> /tmp/concat.txt
+          done
+          ffmpeg -y -f concat -safe 0 -i /tmp/concat.txt -c copy /tmp/video_concat.mp4
+          ffmpeg -y \
+            -i /tmp/video_concat.mp4 \
+            -i imperial_45s/vo/imperial_45s_vo.mp3 \
+            -f lavfi -i "anoisesrc=color=brown:amplitude=0.008:duration=48" \
+            -filter_complex "[1:a]volume=1.55[vo];[2:a]lowpass=f=140[amb];[vo][amb]amix=inputs=2:duration=first[aout]" \
+            -map 0:v:0 -map "[aout]" \
+            -c:v copy -c:a aac -b:a 192k -shortest \
+            /tmp/Imperial_IdesOfMarch_45s_Masterpiece_1080p.mp4
+          ls -lh /tmp/Imperial_IdesOfMarch_45s_Masterpiece_1080p.mp4
+
+          # Generate 8-panel visual QA sheet from the finished 1080p MP4
+          python3 -c '
+          import cv2, numpy as np
+          cap = cv2.VideoCapture("/tmp/Imperial_IdesOfMarch_45s_Masterpiece_1080p.mp4")
+          fps = cap.get(cv2.CAP_PROP_FPS)
+          times = [2.5, 9.0, 16.5, 19.5, 22.5, 27.5, 34.8, 37.8, 44.5]
+          w, h = 640, 360
+          grid = np.zeros((3*h, 3*w, 3), dtype=np.uint8)
+          for i, t in enumerate(times):
+              cap.set(cv2.CAP_PROP_POS_FRAMES, int(t * fps))
+              ret, fr = cap.read()
+              if ret:
+                  r, c = i // 3, i % 3
+                  grid[r*h:(r+1)*h, c*w:(c+1)*w] = cv2.resize(fr, (w, h), interpolation=cv2.INTER_AREA)
+          cv2.imwrite("/tmp/Imperial_45s_QA_9Panel.jpg", grid, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+          '
+
+      - name: Upload Final 1080p Masterpiece & QA Sheet
+        uses: actions/upload-artifact@v4
+        with:
+          name: Imperial-IdesOfMarch-45s-Masterpiece-1080p
+          path: |
+            /tmp/Imperial_IdesOfMarch_45s_Masterpiece_1080p.mp4
+            /tmp/Imperial_45s_QA_9Panel.jpg
+          if-no-files-found: error
