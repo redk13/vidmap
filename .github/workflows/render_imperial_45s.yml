@@ -1,4 +1,4 @@
-name: Render Imperial 45s Golden Masterpiece (16 Shards)
+name: Render Imperial 45s Golden Masterpiece (20 Turbo 3D Shards)
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -19,24 +19,19 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y ffmpeg libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libxkbcommon0 libsm6 libice6
           pip install numpy opencv-python-headless Pillow
-          # Only install Blender on shards that render 3D scenes (0,1,2,3,6,10,11,13,14,15)
-          if [[ " 0 1 2 3 6 10 11 13 14 15 " =~ " ${{ matrix.shard }} " ]]; then
-            curl -sL https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
-            tar -xf /tmp/blender.tar.xz -C /tmp/
-          fi
+          curl -sL https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -xf /tmp/blender.tar.xz -C /tmp/
 
-      - name: Render 3D & Composite 2.5D Noir Shard
+      - name: Render 45-Frame 3D Shard & Composite Overlay
         run: |
-          if [[ " 0 1 2 3 6 10 11 13 14 15 " =~ " ${{ matrix.shard }} " ]]; then
-            /tmp/blender-4.3.2-linux-x64/blender -b -P imperial_45s/render_imperial_3d_shard.py -- ${{ matrix.shard }}
-          fi
+          /tmp/blender-4.3.2-linux-x64/blender -b -P imperial_45s/render_imperial_3d_shard.py -- ${{ matrix.shard }}
           python3 imperial_45s/render_imperial_compositor.py ${{ matrix.shard }}
 
       - name: Upload Shard MP4
         uses: actions/upload-artifact@v4
         with:
-          name: imperial-shard-${{ matrix.shard }}
-          path: /tmp/shard_*.mp4
+          name: imperial-part-${{ matrix.shard }}
+          path: /tmp/part_*.mp4
           if-no-files-found: error
 
   stitch_master:
@@ -46,21 +41,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download All 16 Shards
+      - name: Download All 20 3D Parts
         uses: actions/download-artifact@v4
         with:
-          pattern: imperial-shard-*
+          pattern: imperial-part-*
           path: /tmp/shards
           merge-multiple: true
 
-      - name: Concatenate 16 Shards & Mux Voiceover + Subtle Noir Ambience
+      - name: Render 2.5D Noir Segments & Concatenate Full 48s 1080p Masterpiece
         run: |
-          sudo apt-get update -y && sudo apt-get install -y ffmpeg python3-opencv python3-numpy
+          sudo apt-get update -y && sudo apt-get install -y ffmpeg
+          pip install numpy opencv-python-headless Pillow
+          python3 imperial_45s/render_imperial_compositor.py --render-25d-all /tmp/shards
+          ls -lh /tmp/shards/part_*.mp4
+
           rm -f /tmp/concat.txt
-          for i in $(seq -f "%02g" 0 15); do
-            test -s "/tmp/shards/shard_${i}.mp4"
-            echo "file '/tmp/shards/shard_${i}.mp4'" >> /tmp/concat.txt
+          for f in $(ls /tmp/shards/part_*.mp4 | sort); do
+            test -s "$f"
+            echo "file '$f'" >> /tmp/concat.txt
           done
+          cat /tmp/concat.txt
+
           ffmpeg -y -f concat -safe 0 -i /tmp/concat.txt -c copy /tmp/video_concat.mp4
           ffmpeg -y \
             -i /tmp/video_concat.mp4 \
@@ -72,7 +73,6 @@ jobs:
             /tmp/Imperial_IdesOfMarch_45s_Masterpiece_1080p.mp4
           ls -lh /tmp/Imperial_IdesOfMarch_45s_Masterpiece_1080p.mp4
 
-          # Generate 8-panel visual QA sheet from the finished 1080p MP4
           python3 -c '
           import cv2, numpy as np
           cap = cv2.VideoCapture("/tmp/Imperial_IdesOfMarch_45s_Masterpiece_1080p.mp4")

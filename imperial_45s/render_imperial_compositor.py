@@ -785,55 +785,79 @@ def overlay_scene6b_stab_caption(base_rgb_pil, local_t):
 
 if __name__ == "__main__":
     import subprocess
+    if sys.argv[1] == "--render-25d-all":
+        out_root = sys.argv[2]
+        os.makedirs(out_root, exist_ok=True)
+        ranges_25d = [
+            (360,  540),  # Scene 2: Bento Dossier (180 frames)
+            (630,  720),  # Scene 3B: Crimson Poster (90 frames)
+            (720,  900),  # Scene 4: 3D Tilted Relief Map + Cards (180 frames)
+            (1080, 1170), # Scene 6A: Plutarch Spotlight (90 frames)
+        ]
+        for s_f, e_f in ranges_25d:
+            cdir = f"/tmp/comp_25d_{s_f:04d}"
+            os.makedirs(cdir, exist_ok=True)
+            for idx, f in enumerate(range(s_f, e_f)):
+                scene_id = f // 180
+                local_t = (f % 180) / FPS
+                if scene_id == 2:
+                    out_pil = render_scene2_bento_dossier(local_t)
+                elif scene_id == 3:
+                    out_pil = render_scene3b_crimson_poster(local_t - 3.0)
+                elif scene_id == 4:
+                    out_pil = render_scene4_tilted_relief_map(local_t)
+                elif scene_id == 6:
+                    out_pil = render_scene6a_plutarch_spotlight(local_t)
+                out_pil.save(os.path.join(cdir, f"frame_{idx:04d}.png"))
+            out_mp4 = os.path.join(out_root, f"part_{s_f:04d}.mp4")
+            subprocess.run([
+                "ffmpeg", "-y", "-framerate", "30",
+                "-i", os.path.join(cdir, "frame_%04d.png"),
+                "-c:v", "libx264", "-preset", "slow", "-crf", "15",
+                "-pix_fmt", "yuv420p", out_mp4
+            ], check=True)
+            print("Encoded 2.5D part:", out_mp4)
+        sys.exit(0)
+
     shard_id = int(sys.argv[1])
-    frames_per_shard = 90
-    start_f = shard_id * frames_per_shard
-    end_f = start_f + frames_per_shard
+    SHARD_3D_RANGES = [
+        (0,   45),   (45,  90),   (90,  135),  (135, 180),
+        (180, 225),  (225, 270),  (270, 315),  (315, 360),
+        (540, 585),  (585, 630),
+        (900, 945),  (945, 990),  (990, 1035), (1035, 1080),
+        (1170, 1215),(1215, 1260),
+        (1260, 1305),(1305, 1350),(1350, 1395),(1395, 1440),
+    ]
+    start_f, end_f = SHARD_3D_RANGES[shard_id]
     raw_dir = f"/tmp/imperial_shard_{shard_id:02d}"
     comp_dir = f"/tmp/imperial_comp_{shard_id:02d}"
     os.makedirs(comp_dir, exist_ok=True)
 
     for idx, f in enumerate(range(start_f, end_f)):
-        t_sec = f / FPS
         scene_id = f // 180
         local_t = (f % 180) / FPS
         raw_p = os.path.join(raw_dir, f"raw_{f:04d}.png")
+        base = Image.open(raw_p).convert("RGB")
 
         if scene_id == 0:
-            base = Image.open(raw_p).convert("RGB")
             out_pil = overlay_scene0_curia(base, local_t)
         elif scene_id == 1:
-            base = Image.open(raw_p).convert("RGB")
             out_pil = overlay_scene1_complex_badge(base, local_t)
-        elif scene_id == 2:
-            out_pil = render_scene2_bento_dossier(local_t)
         elif scene_id == 3:
-            if shard_id == 6:
-                base = Image.open(raw_p).convert("RGB")
-                out_pil = overlay_scene3a_bust_caption(base, local_t)
-            else:
-                out_pil = render_scene3b_crimson_poster(local_t - 3.0)
-        elif scene_id == 4:
-            out_pil = render_scene4_tilted_relief_map(local_t)
+            out_pil = overlay_scene3a_bust_caption(base, local_t)
         elif scene_id == 5:
-            base = Image.open(raw_p).convert("RGB")
             if local_t < 3.4:
                 out_pil = overlay_scene5a_grouping_brackets(base, local_t)
             else:
                 out_pil = render_decimus_brutus_dossier_overlay(base, local_t - 3.4)
         elif scene_id == 6:
-            if shard_id == 12:
-                out_pil = render_scene6a_plutarch_spotlight(local_t)
-            else:
-                base = Image.open(raw_p).convert("RGB")
-                out_pil = overlay_scene6b_stab_caption(base, local_t - 3.0)
+            out_pil = overlay_scene6b_stab_caption(base, local_t - 3.0)
         elif scene_id == 7:
-            base = Image.open(raw_p).convert("RGB")
             out_pil = overlay_scene7_crime_scene(base, local_t)
 
         out_pil.save(os.path.join(comp_dir, f"frame_{idx:04d}.png"))
 
-    out_mp4 = f"/tmp/shard_{shard_id:02d}.mp4"
+    out_mp4 = f"/tmp/part_{start_f:04d}.mp4"
     subprocess.run([
         "ffmpeg", "-y", "-framerate", "30",
         "-i", os.path.join(comp_dir, "frame_%04d.png"),
