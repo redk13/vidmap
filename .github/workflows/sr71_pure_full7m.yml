@@ -1,10 +1,10 @@
-name: SR71 Full 7-Min Pure Primal Space 1080p Masterpiece
+name: SR71 Full 7-Min V10 Soul & 27 Unique 3D Scenes Masterpiece
 
 on:
   workflow_dispatch:
 
 jobs:
-  render_18_pure_cad_shards:
+  render_18_new_3d_scenes:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -17,18 +17,18 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1
           curl -sL https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz | tar -xJ -C /var/tmp/
-      - name: Render 50 Fast 1080p Pure Blender Frames
+      - name: Render 60 Fast 1080p Pure Blender Frames for Unique Scene s9..s26
         run: |
           mkdir -p /var/tmp/cad_out
-          /var/tmp/blender-4.3.2-linux-x64/blender -b -P sr71_doc/pure_full7m/render_extra_cad_shard.py -- ${{ matrix.shard }} /var/tmp/cad_out
-      - name: Upload CAD Frames
+          /var/tmp/blender-4.3.2-linux-x64/blender -b -P sr71_doc/pure_full7m/render_18_new_3d_scenes.py -- ${{ matrix.shard }} /var/tmp/cad_out
+      - name: Upload New 3D Scene Frames
         uses: actions/upload-artifact@v4
         with:
-          name: cad-pure-shard-${{ matrix.shard }}
+          name: cad-new18-shard-${{ matrix.shard }}
           path: /var/tmp/cad_out/*.png
 
   render_20_master_shards:
-    needs: render_18_pure_cad_shards
+    needs: render_18_new_3d_scenes
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -36,18 +36,26 @@ jobs:
         shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     steps:
       - uses: actions/checkout@v4
-      - name: Download All 18 CAD Shards
+      - name: Download New 18 3D Scenes (s9..s26)
         uses: actions/download-artifact@v4
         with:
+          pattern: cad-new18-shard-*
+          path: /var/tmp/cad_all
+          merge-multiple: true
+      - name: Download Existing 6 3D Scenes (s3..s8) from Run 39024079177
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 39024079177
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: cad-pure-shard-*
           path: /var/tmp/cad_all
           merge-multiple: true
-      - name: Unpack Prebaked Scenes 0..2 & Render 641 Master Frames
+      - name: Unpack Prebaked Scenes s0..s2 & Render 641 Master Frames
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg python3-opencv python3-pil python3-numpy
           python3 - << 'PY'
-          import cv2, os
+          import cv2
           cap = cv2.VideoCapture("sr71_doc/pure_full7m/prebaked_3scenes_450f.mp4")
           for s_id in range(3):
               for f in range(150):
@@ -64,13 +72,13 @@ jobs:
             F_END=$(( (S + 1) * 640 ))
           fi
           mkdir -p /var/tmp/m_out
-          python3 sr71_doc/pure_full7m/render_pure_master_shard.py $F_START $F_END /var/tmp/cad_all /var/tmp/m_out
+          python3 sr71_doc/pure_full7m/render_v10_soul_master_shard.py $F_START $F_END /var/tmp/cad_all /var/tmp/m_out
           ffmpeg -y -start_number $F_START -framerate 30 -i /var/tmp/m_out/frame_%05d.jpg \
             -c:v libx264 -preset fast -crf 15 -pix_fmt yuv420p /var/tmp/m_out/mshard_${S}.mp4
       - name: Upload Master Video Shard
         uses: actions/upload-artifact@v4
         with:
-          name: master-pure-shard-${{ matrix.shard }}
+          name: master-v10-shard-${{ matrix.shard }}
           path: /var/tmp/m_out/mshard_${{ matrix.shard }}.mp4
 
   assemble_full_7min_masterpiece:
@@ -81,7 +89,7 @@ jobs:
       - name: Download All 20 Master Shards
         uses: actions/download-artifact@v4
         with:
-          pattern: master-pure-shard-*
+          pattern: master-v10-shard-*
           path: /var/tmp/m_all
           merge-multiple: true
       - name: Concatenate Full 7-Min Video + Master Audio
@@ -93,10 +101,10 @@ jobs:
           done
           ffmpeg -y -f concat -safe 0 -i /var/tmp/concat.txt -i sr71_doc/vo/master_audio.mp3 \
             -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart \
-            /var/tmp/SR71_Blackbird_Pure_PrimalSpace_Full7Min_1080p.mp4
-          ls -lh /var/tmp/SR71_Blackbird_Pure_PrimalSpace_Full7Min_1080p.mp4
+            /var/tmp/SR71_Blackbird_V10_Soul_Masterpiece_1080p.mp4
+          ls -lh /var/tmp/SR71_Blackbird_V10_Soul_Masterpiece_1080p.mp4
       - name: Upload Final Full 7-Min Masterpiece
         uses: actions/upload-artifact@v4
         with:
-          name: SR71_Blackbird_Pure_PrimalSpace_Full7Min_1080p
-          path: /var/tmp/SR71_Blackbird_Pure_PrimalSpace_Full7Min_1080p.mp4
+          name: SR71_Blackbird_V10_Soul_Masterpiece_1080p
+          path: /var/tmp/SR71_Blackbird_V10_Soul_Masterpiece_1080p.mp4
