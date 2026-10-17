@@ -20,7 +20,6 @@ import random
 import bpy
 import bmesh
 import mathutils
-from PIL import Image
 import numpy as np
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -147,9 +146,14 @@ def create_3d_depth_stage(img_filename, name="DepthStage", width=16.0, height=9.
     point lights, 3D extruded text, and 3D camera motion interact with the 3D surface!
     """
     img_path = os.path.join(ASSETS_DIR, img_filename)
-    pil_im = Image.open(img_path).convert("RGB").resize((nx, ny), Image.Resampling.BILINEAR)
-    arr = np.asarray(pil_im, dtype=np.float32) / 255.0
+    b_img_full = bpy.data.images.load(img_path)
+    b_img = b_img_full.copy()
+    b_img.scale(nx, ny)
+    px = np.array(b_img.pixels[:], dtype=np.float32).reshape((ny, nx, 4))
+    # Flip vertically so row 0 is top of image (matching v_norm = 0 at top)
+    arr = px[::-1, :, :3]
     lum = 0.299 * arr[:, :, 0] + 0.587 * arr[:, :, 1] + 0.114 * arr[:, :, 2]
+    bpy.data.images.remove(b_img)
 
     mesh = bpy.data.meshes.new(name + "_Mesh")
     obj = bpy.data.objects.new(name, mesh)
@@ -222,7 +226,7 @@ def create_3d_depth_stage(img_filename, name="DepthStage", width=16.0, height=9.
         bsdf.inputs["Coat Weight"].default_value = 0.35
 
     tex = nt.nodes.new("ShaderNodeTexImage")
-    tex.image = bpy.data.images.load(img_path)
+    tex.image = b_img_full
     tex.extension = "EXTEND"
 
     nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
