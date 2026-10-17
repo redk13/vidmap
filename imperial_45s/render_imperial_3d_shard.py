@@ -304,7 +304,9 @@ def build_curia_interior_set(include_standing_caesar=True, include_throne_caesar
         ped = bpy.context.active_object
         ped.scale = (1.35, 1.35, 1.40)
         ped.data.materials.append(mat_trav)
-        append_blend_meshes("gothic_statue.blend", target_size=2.45, location=(0.0, 5.4, 1.95), rot_euler=(0, 0, 0))
+        pompey_st = load_vertex_color_glb("senator_standing_clean.glb", target_height=2.45, location=(0.0, 5.4, 1.95), rot_z_deg=0.0)
+        pompey_st.data.materials.clear()
+        pompey_st.data.materials.append(mat_col)
 
         # Glossy crimson blood pool on the marble floor below Pompey's statue
         mat_blood = make_pbr_mat("BloodPool", (0.38, 0.012, 0.015), roughness=0.05)
@@ -417,7 +419,7 @@ def build_scene1_pompey_complex_cutaway():
 
     # Animated dotted footsteps route leading into the Curia
     for i in range(14):
-        bpy.ops.mesh.primitive_sphere_add(radius=0.11, location=(-5.0 + i * 0.72, 0.0, 0.12))
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=0.11, location=(-5.0 + i * 0.72, 0.0, 0.12))
         dot = bpy.context.active_object
         dot.data.materials.append(mat_white_emit)
 
