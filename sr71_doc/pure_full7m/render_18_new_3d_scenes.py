@@ -1,35 +1,29 @@
-import bpy, os, sys, math
-from mathutils import Vector, Euler
+"""Renders 18 brand-new unique 1080p Pure-Blender 3D sequences (Scenes s9..s26, 60 frames each)
+using the exact proven setup_blackbird_scene() and setup_j58_scene() from render_extra_cad_shard.py.
+"""
+import bpy, math, os, sys
+from mathutils import Vector
 
-argv = sys.argv
-if "--" in argv:
-    args = argv[argv.index("--") + 1:]
-    shard_id = int(args[0])
-    out_dir  = os.path.abspath(args[1])
-else:
-    shard_id = 0
-    out_dir  = "/var/tmp/cad_out"
+argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else ["0", "/tmp/cad_out"]
+SHARD_ID  = int(argv[0]) # 0..17
+OUT_DIR   = os.path.abspath(argv[1])
+os.makedirs(OUT_DIR, exist_ok=True)
 
-os.makedirs(out_dir, exist_ok=True)
+SCENE_IDX = 9 + SHARD_ID # s9 .. s26
+N_FRAMES  = 60
 
-# Shard 0..17 renders Scene s9..s26 (18 brand-new unique 1080p 3D Studio sequences, 60 frames each)
-scene_id = 9 + shard_id
-N_FRAMES = 60
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT  = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
-SR71_GLB   = os.path.join(REPO_ROOT, "vidmap_ht", "models", "Blackbird.glb")
-J58_GLB    = os.path.join(REPO_ROOT, "sr71_doc", "f110_engine", "f110_web.glb")
-FONT_PATH  = os.path.join(REPO_ROOT, "sr71_doc", "fonts", "Oswald-Bold.ttf")
+def smoothstep(t):
+    t = max(0.0, min(1.0, t))
+    return t * t * (3.0 - 2.0 * t)
 
-def init_cycles_fast_1080p():
+def init_fast_cycles_1080p(exposure=0.0):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scn = bpy.context.scene
     scn.render.engine = 'CYCLES'
     scn.cycles.device = 'CPU'
     scn.cycles.samples = 6
-    scn.cycles.use_adaptive_sampling = True
-    scn.cycles.adaptive_threshold = 0.05
     scn.cycles.use_denoising = True
     scn.cycles.denoiser = 'OPENIMAGEDENOISE'
     scn.cycles.denoising_input_passes = 'RGB_ALBEDO_NORMAL'
@@ -37,299 +31,307 @@ def init_cycles_fast_1080p():
     scn.cycles.max_bounces = 1
     scn.cycles.diffuse_bounces = 1
     scn.cycles.glossy_bounces = 1
-    scn.cycles.transmission_bounces = 1
     scn.cycles.transparent_max_bounces = 1
+    scn.cycles.sample_clamp_direct = 5.0
+    scn.cycles.sample_clamp_indirect = 2.5
     scn.render.use_persistent_data = True
     scn.render.resolution_x = 1920
     scn.render.resolution_y = 1080
-    scn.render.resolution_percentage = 100
-    scn.render.image_settings.file_format = 'PNG'
     scn.view_settings.view_transform = 'AgX'
+    scn.view_settings.exposure = exposure
     scn.view_settings.look = 'AgX - Medium High Contrast'
 
     world = bpy.data.worlds.new("StudioWorld")
     scn.world = world
     world.use_nodes = True
     bg = world.node_tree.nodes.get("Background")
-    bg.inputs[0].default_value = (0.010, 0.013, 0.018, 1.0)
-    bg.inputs[1].default_value = 0.70
-
-    bpy.ops.mesh.primitive_plane_add(size=240.0, location=(0, 0, 0))
-    fl = bpy.context.active_object
-    m_fl = bpy.data.materials.new("FloorMat")
-    m_fl.use_nodes = True
-    b_fl = m_fl.node_tree.nodes.get("Principled BSDF")
-    b_fl.inputs["Base Color"].default_value = (0.015, 0.018, 0.024, 1.0)
-    b_fl.inputs["Metallic"].default_value = 0.15
-    b_fl.inputs["Roughness"].default_value = 0.28
-    fl.data.materials.append(m_fl)
-
-    def add_area(name, loc, rot_deg, energy, size, col=(1.0, 0.98, 0.95)):
-        ld = bpy.data.lights.new(name, type='AREA')
-        ld.energy = energy
-        ld.size = size
-        ld.color = col
-        lo = bpy.data.objects.new(name, ld)
-        scn.collection.objects.link(lo)
-        lo.location = loc
-        lo.rotation_euler = tuple(math.radians(a) for a in rot_deg)
-
-    add_area("KeyLight",  (0, -5, 11), (22, 0, 0),   2400.0, 11.0, (1.0, 0.98, 0.95))
-    add_area("RimLight",  (-8, 8, 7),  (-32, -28, 0),1600.0, 8.0,  (0.75, 0.88, 1.0))
-    add_area("FillLight", (8, -7, 5),  (42, 28, 0),  1100.0, 9.0,  (1.0, 0.93, 0.85))
+    bg.inputs["Color"].default_value = (0.025, 0.029, 0.036, 1.0)
+    bg.inputs["Strength"].default_value = 1.0
     return scn
 
-def load_sr71_model(scn, bank_deg=0.0):
-    bpy.ops.import_scene.gltf(filepath=SR71_GLB)
-    meshes = [o for o in scn.objects if o.type == 'MESH' and o.name != "Plane"]
-    b_min = Vector((1e9, 1e9, 1e9))
-    b_max = Vector((-1e9, -1e9, -1e9))
-    for o in meshes:
+def build_clean_alloys():
+    palette = {
+        "titanium":        ((0.46, 0.48, 0.51), 0.90, 0.24),
+        "casing_alloy":    ((0.28, 0.30, 0.33), 0.86, 0.32),
+        "hot_nickel":      ((0.28, 0.23, 0.19), 0.84, 0.30),
+        "thermal_barrier": ((0.74, 0.71, 0.65), 0.08, 0.58),
+        "steel":           ((0.62, 0.63, 0.65), 0.94, 0.18),
+    }
+    out = {}
+    for name, (rgb, met, rough) in palette.items():
+        m = bpy.data.materials.new(name)
+        m.use_nodes = True
+        bsdf = m.node_tree.nodes.get("Principled BSDF")
+        bsdf.inputs["Base Color"].default_value = (*rgb, 1.0)
+        bsdf.inputs["Metallic"].default_value = met
+        bsdf.inputs["Roughness"].default_value = rough
+        out[name] = m
+    return out
+
+def setup_blackbird_scene(cockpit_mode=False):
+    scn = init_fast_cycles_1080p(exposure=0.0)
+    bpy.ops.import_scene.gltf(filepath=os.path.join(ROOT, "models3d", "Blackbird.glb"))
+    objs = [o for o in scn.objects if o.type == 'MESH']
+    bpy.ops.object.select_all(action='SELECT')
+    bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+
+    min_v = Vector((1e9, 1e9, 1e9)); max_v = Vector((-1e9, -1e9, -1e9))
+    for o in objs:
         for v in o.bound_box:
-            w = o.matrix_world @ Vector(v)
-            b_min.x = min(b_min.x, w.x); b_min.y = min(b_min.y, w.y); b_min.z = min(b_min.z, w.z)
-            b_max.x = max(b_max.x, w.x); b_max.y = max(b_max.y, w.y); b_max.z = max(b_max.z, w.z)
-    span = max(b_max - b_min)
-    sc = 15.0 / span
-    cx, cy = (b_min.x + b_max.x) * 0.5, (b_min.y + b_max.y) * 0.5
-    p = bpy.data.objects.new("SR71_Root", None)
-    scn.collection.objects.link(p)
-    for o in scn.objects:
-        if o.parent is None and o not in (p,) and o.type != 'LIGHT' and o.name != "Plane":
-            o.parent = p
-    p.scale = (sc, sc, sc)
-    p.location = (-cx * sc, -cy * sc, -b_min.z * sc + 0.05 + (1.4 if abs(bank_deg) > 1.0 else 0.0))
-    if abs(bank_deg) > 0.1:
-        p.rotation_euler = (0.0, math.radians(bank_deg), 0.0)
-    return p
+            wv = o.matrix_world @ Vector(v)
+            for i in range(3):
+                min_v[i] = min(min_v[i], wv[i]); max_v[i] = max(max_v[i], wv[i])
+    center = (min_v + max_v) * 0.5
+    size = max_v - min_v
+    scale_f = 8.0 / max(size.x, size.y, size.z, 0.001)
+    z_min_s = (min_v.z - center.z) * scale_f
 
-def load_j58_model(scn, cutaway=True):
-    import sys as _sys
-    _sys.path.insert(0, os.path.join(REPO_ROOT, "sr71_doc", "f110_engine"))
-    import build_f110 as bf
-    bf._add_wear = lambda *a, **kw: None
-    mats = bf.build_materials()
-    for m_obj in mats.values():
-        if not m_obj or not m_obj.use_nodes:
-            continue
-        for nd in m_obj.node_tree.nodes:
-            if nd.type == 'BSDF_PRINCIPLED':
-                r_in = nd.inputs.get("Roughness")
-                if r_in and not r_in.is_linked and r_in.default_value < 0.22:
-                    r_in.default_value = 0.22
-    col = bpy.data.collections.new("F110")
-    scn.collection.children.link(col)
-    def _fast_bez(col, name, pts, radius, mat, bev_res=6):
-        cd = bpy.data.curves.new(name, type='CURVE')
-        cd.dimensions = '3D'; cd.bevel_depth = radius; cd.bevel_resolution = bev_res
-        sp = cd.splines.new('BEZIER')
-        sp.bezier_points.add(len(pts) - 1)
-        for i, p in enumerate(pts):
-            bp = sp.bezier_points[i]; bp.co = p
-            bp.handle_left_type = 'AUTO'; bp.handle_right_type = 'AUTO'
-        ob = bpy.data.objects.new(name, cd); col.objects.link(ob)
-        for s in cd.splines: s.use_smooth = True
-        if mat: ob.data.materials.append(mat)
-        return ob
-    bf.bezier_tube = _fast_bez
-    bf.build_inlet_section(col, mats)
-    bf.build_fan_stage(col, mats)
-    bf.build_hpc_stage(col, mats)
-    bf.build_combustor(col, mats)
-    bf.build_turbine(col, mats)
-    bf.build_augmentor(col, mats)
-    bf.build_nozzle(col, mats)
-    bf.build_external_dressings(col, mats)
-    if cutaway:
-        bf.apply_section_cut(col, mats)
-        cutter = bpy.data.objects.get("__section_cutter")
-        if cutter:
-            for o in list(col.objects):
-                if o.type == 'MESH' and "Cutaway" in o.modifiers:
-                    bpy.context.view_layer.objects.active = o
-                    try:
-                        bpy.ops.object.modifier_apply(modifier="Cutaway")
-                    except Exception:
-                        o.modifiers.remove(o.modifiers["Cutaway"])
-            bpy.data.objects.remove(cutter, do_unlink=True)
-    for o in col.objects:
-        o.location.z += 1.25
-    return col
+    for o in objs:
+        o.location = (o.location - center) * scale_f
+        o.location.z -= z_min_s
+        o.scale = (scale_f, scale_f, scale_f)
+        for p in o.data.polygons: p.use_smooth = True
 
-def build_3d_cockpit(scn):
-    def make_mat(name, col, met=0.1, rough=0.45, emit=None, emit_s=0.0):
-        m = bpy.data.materials.new(name); m.use_nodes = True
-        b = m.node_tree.nodes.get("Principled BSDF")
-        b.inputs["Base Color"].default_value = (*col, 1.0)
-        b.inputs["Metallic"].default_value = met
-        b.inputs["Roughness"].default_value = rough
-        if emit:
-            b.inputs["Emission Color"].default_value = (*emit, 1.0)
-            b.inputs["Emission Strength"].default_value = emit_s
-        return m
+    for m in bpy.data.materials:
+        if not m.use_nodes: continue
+        nt = m.node_tree
+        for l in list(nt.links):
+            if l.to_socket.name == "Alpha":
+                nt.links.remove(l)
+        if m.name in ("Transparent", "DefaultWhite"):
+            nt.nodes.clear()
+            out = nt.nodes.new("ShaderNodeOutputMaterial")
+            glass = nt.nodes.new("ShaderNodeBsdfPrincipled")
+            if cockpit_mode:
+                glass.inputs["Base Color"].default_value = (0.70, 0.85, 1.0, 1.0)
+                glass.inputs["Roughness"].default_value = 0.04
+                glass.inputs["Alpha"].default_value = 0.16
+            else:
+                glass.inputs["Base Color"].default_value = (0.15, 0.22, 0.30, 1.0)
+                glass.inputs["Metallic"].default_value = 0.85
+                glass.inputs["Roughness"].default_value = 0.08
+            nt.links.new(glass.outputs["BSDF"], out.inputs["Surface"])
+        elif "texture.png" in m.name:
+            for n in nt.nodes:
+                if n.type == 'BSDF_PRINCIPLED':
+                    n.inputs["Metallic"].default_value = 0.62
+                    n.inputs["Roughness"].default_value = 0.28
 
-    m_panel = make_mat("PanelGrey", (0.14, 0.15, 0.16), 0.15, 0.58)
-    m_dark  = make_mat("BezelBlk",  (0.03, 0.035, 0.04), 0.45, 0.32)
-    m_dial  = make_mat("DialFace",  (0.05, 0.055, 0.065), 0.1, 0.4)
-    m_white = make_mat("TickWhite", (0.95, 0.96, 0.98), 0.0, 0.2, (0.95, 0.96, 0.98), 1.8)
-    m_amber = make_mat("NeedleAmb", (1.0, 0.65, 0.15),  0.0, 0.2, (1.0, 0.65, 0.15), 2.5)
-    m_green = make_mat("RadarGrn",  (0.15, 0.95, 0.45), 0.0, 0.2, (0.15, 0.95, 0.45), 2.2)
+    bpy.ops.mesh.primitive_plane_add(size=100.0, location=(0, 0, -0.01))
+    floor = bpy.context.active_object
+    fmat = bpy.data.materials.new("Floor2"); fmat.use_nodes = True
+    fbsdf = fmat.node_tree.nodes.get("Principled BSDF")
+    fbsdf.inputs["Base Color"].default_value = (0.038, 0.044, 0.054, 1.0)
+    fbsdf.inputs["Roughness"].default_value = 0.38; fbsdf.inputs["Metallic"].default_value = 0.18
+    floor.data.materials.append(fmat)
 
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, 0, 2.0))
-    pnl = bpy.context.active_object; pnl.scale = (4.2, 0.15, 2.6); pnl.data.materials.append(m_panel)
+    def add_light(name, loc, target, energy, size_l, col=(1,1,1)):
+        ld = bpy.data.lights.new(name, type='AREA')
+        ld.energy = energy; ld.size = size_l; ld.color = col
+        lo = bpy.data.objects.new(name, ld); scn.collection.objects.link(lo)
+        lo.location = loc
+        lo.rotation_euler = (Vector(target) - Vector(loc)).to_track_quat('-Z', 'Y').to_euler()
 
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(-1.95, -0.55, 1.25))
-    lcon = bpy.context.active_object; lcon.scale = (0.65, 1.2, 0.45); lcon.data.materials.append(m_panel)
-    for tx in (-2.08, -1.82):
-        bpy.ops.mesh.primitive_cylinder_add(radius=0.035, depth=0.45, location=(tx, -0.45, 1.62))
-        st = bpy.context.active_object; st.rotation_euler = (math.radians(-22), 0, 0); st.data.materials.append(m_dark)
-        bpy.ops.mesh.primitive_cylinder_add(radius=0.065, depth=0.14, location=(tx, -0.36, 1.82))
-        hd = bpy.context.active_object; hd.rotation_euler = (0, math.radians(90), 0); hd.data.materials.append(m_white if tx < -1.9 else m_amber)
+    add_light("Key",  (4.5, -5.5, 4.8), (0, 0, 0.5), 950.0, 5.5, (1.0, 0.98, 0.95))
+    add_light("Fill", (-5.0, -4.0, 3.2), (0, 0, 0.5), 550.0, 6.0, (0.85, 0.92, 1.0))
+    add_light("Rim",  (0.0, 5.5, 4.2), (0, 0, 0.5), 780.0, 5.0, (0.95, 0.98, 1.0))
 
-    gauges = [
-        (-0.55, 2.25, 0.23, "MACH", "3.22", 140),
-        ( 0.55, 2.28, 0.22, "ALT",  "85000", 110),
-        (-0.55, 1.72, 0.22, "CLIMB","0.0",   90),
-        ( 0.55, 1.78, 0.22, "KEAS", "410",   125),
-        ( 0.92, 1.68, 0.15, "EGT L","840",   135),
-        ( 1.24, 1.68, 0.15, "EGT R","842",   138),
-        ( 1.68, 1.72, 0.22, "JP-7", "48500", 85),
-    ]
-    needles = []
-    for (gx, gz, gr, lbl, sub, ang) in gauges:
-        bpy.ops.mesh.primitive_cylinder_add(vertices=48, radius=gr, depth=0.06, location=(gx, -0.09, gz))
-        bz = bpy.context.active_object; bz.rotation_euler = (math.radians(90), 0, 0); bz.data.materials.append(m_dark)
-        bpy.ops.mesh.primitive_cylinder_add(vertices=48, radius=gr*0.88, depth=0.05, location=(gx, -0.10, gz))
-        fc = bpy.context.active_object; fc.rotation_euler = (math.radians(90), 0, 0); fc.data.materials.append(m_dial)
-        for t_i in range(12):
-            ta = math.radians(t_i * 30)
-            tx = gx + math.sin(ta) * (gr * 0.74); tz = gz + math.cos(ta) * (gr * 0.74)
-            bpy.ops.mesh.primitive_cube_add(size=1.0, location=(tx, -0.128, tz))
-            tk = bpy.context.active_object; tk.scale = (0.008, 0.005, gr * 0.11); tk.rotation_euler = (0, -ta, 0); tk.data.materials.append(m_white)
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(gx, -0.132, gz))
-        nd = bpy.context.active_object; nd.scale = (0.010, 0.005, gr * 0.68); nd.rotation_euler = (0, -math.radians(ang), 0)
-        nd.data.materials.append(m_amber if "EGT" in lbl else m_white)
-        needles.append((nd, ang))
+    if cockpit_mode:
+        for lx, ly, lz, en in [(0.0, -2.58, 0.68, 2.5), (-0.12, -2.55, 0.65, 1.2), (0.12, -2.55, 0.65, 1.2)]:
+            pld = bpy.data.lights.new("PanelLight", type='POINT')
+            pld.energy = en; pld.shadow_soft_size = 0.06; pld.color = (1.0, 0.94, 0.86)
+            plo = bpy.data.objects.new("PanelLight", pld)
+            scn.collection.objects.link(plo); plo.location = (lx, ly, lz)
 
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0.0, -0.10, 1.18))
-    rd = bpy.context.active_object; rd.scale = (0.58, 0.06, 0.58); rd.data.materials.append(m_dark)
-    for r_ring in (0.08, 0.16, 0.23):
-        bpy.ops.mesh.primitive_torus_add(major_radius=r_ring, minor_radius=0.004, location=(0.0, -0.132, 1.18), rotation=(math.radians(90), 0, 0))
-        rg = bpy.context.active_object; rg.data.materials.append(m_green)
-    return needles
+    cam_d = bpy.data.cameras.new("Cam"); cam_d.lens = 50.0; cam_d.clip_start = 0.01
+    cam_o = bpy.data.objects.new("Cam", cam_d)
+    scn.collection.objects.link(cam_o); scn.camera = cam_o
+    return scn, cam_o, cam_d
 
-scn = init_cycles_fast_1080p()
-cam_d = bpy.data.cameras.new("Cam")
-cam_d.lens = 52.0
-cam = bpy.data.objects.new("Cam", cam_d)
-scn.collection.objects.link(cam)
-scn.camera = cam
-tgt = bpy.data.objects.new("Target", None)
-scn.collection.objects.link(tgt)
-ttc = cam.constraints.new(type='TRACK_TO')
-ttc.target = tgt
-ttc.track_axis = 'TRACK_NEGATIVE_Z'
-ttc.up_axis = 'UP_Y'
+def setup_j58_scene():
+    scn = init_fast_cycles_1080p(exposure=-0.55)
+    bpy.ops.import_scene.gltf(filepath=os.path.join(ROOT, "f110_engine", "build", "f110_web.glb"))
+    objs = [o for o in scn.objects if o.type == 'MESH']
+    bpy.ops.object.select_all(action='SELECT')
+    bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 
-j58_col = None
-cockpit_needles = None
+    lib = build_clean_alloys()
 
-if scene_id in (9, 10, 11, 13, 14, 17, 20, 21, 23, 24, 25, 26):
-    bank = 26.0 if scene_id == 21 else 0.0
-    load_sr71_model(scn, bank_deg=bank)
-elif scene_id in (12, 15, 16, 22):
-    j58_col = load_j58_model(scn, cutaway=(scene_id != 22))
-elif scene_id in (18, 19):
-    cockpit_needles = build_3d_cockpit(scn)
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(1.9, -0.82, 0.12))
+    cutter = bpy.context.active_object
+    cutter.scale = (9.0, 1.64, 2.2)
 
-for f in range(N_FRAMES):
-    u = f / float(N_FRAMES - 1)
-    t = 0.5 - 0.5 * math.cos(math.pi * u)
+    CUT_PATTERNS = ("casing_", "flange_", "inlet_case", "inlet_lip",
+                    "bypass_inner_wall", "augmentor_liner", "combustor_liner_outer",
+                    "nozzle_ext_flaps", "nozzle_seals", "splitter", "mixer")
 
-    if scene_id == 9:
-        cam_d.lens = 68.0
-        cam.location = (-3.8 + 0.8 * t, -5.2 + 0.6 * t, 1.45 + 0.15 * t)
-        tgt.location = (0.0, -3.4 + 0.4 * t, 0.95)
-    elif scene_id == 10:
-        cam_d.lens = 65.0
-        cam.location = (4.6 - 0.5 * t, -2.2 + 1.1 * t, 1.65 + 0.15 * t)
-        tgt.location = (2.1, 0.8 + 0.4 * t, 1.05)
-    elif scene_id == 11:
-        cam_d.lens = 58.0
-        cam.location = (-3.6 + 1.2 * t, -2.4 + 1.4 * t, 0.48 + 0.12 * t)
-        tgt.location = (0.0, -0.5 + 0.5 * t, 0.62)
-    elif scene_id == 12:
-        cam_d.lens = 68.0
-        cam.location = (-1.65 + 0.45 * t, -2.15 + 0.25 * t, 1.45 + 0.10 * t)
-        tgt.location = (-0.95 + 0.25 * t, 0.0, 1.25)
-    elif scene_id == 13:
-        cam_d.lens = 64.0
-        cam.location = (-5.2 + 0.6 * t, 0.5 + 1.8 * t, 2.35 - 0.20 * t)
-        tgt.location = (-2.2, 2.0 + 0.8 * t, 0.95)
-    elif scene_id == 14:
-        cam_d.lens = 60.0
-        cam.location = (-2.4 + 4.8 * t, -2.8 + 1.2 * t, 3.6 - 0.3 * t)
-        tgt.location = (0.0, -0.6 + 0.8 * t, 1.22)
-    elif scene_id == 15:
-        cam_d.lens = 66.0
-        cam.location = (1.65 - 0.45 * t, -2.10 + 0.25 * t, 1.48 - 0.08 * t)
-        tgt.location = (0.95 - 0.20 * t, 0.0, 1.25)
-    elif scene_id == 16:
-        cam_d.lens = 58.0
-        cam.location = (-0.8 + 1.6 * t, -1.9 + 0.3 * t, 2.85 - 0.15 * t)
-        tgt.location = (-0.1 + 0.3 * t, 0.0, 1.32)
-    elif scene_id == 17:
-        cam_d.lens = 62.0
-        cam.location = (-2.2 + 0.4 * t, -6.2 + 1.2 * t, 1.15 + 0.15 * t)
-        tgt.location = (-1.4, -0.5 + 0.8 * t, 1.02)
-    elif scene_id == 18:
-        cam_d.lens = 55.0
-        cam.location = (-0.95 - 0.25 * t, -1.75 + 0.25 * t, 2.05 - 0.10 * t)
-        tgt.location = (-1.65, -0.35, 1.65)
-    elif scene_id == 19:
-        cam_d.lens = 58.0
-        cam.location = (0.45 - 0.90 * t, -1.65 + 0.22 * t, 1.48 + 0.08 * t)
-        tgt.location = (0.0, -0.10, 1.32)
-    elif scene_id == 20:
-        cam_d.lens = 56.0
-        cam.location = (3.8 - 1.2 * t, -1.8 + 1.6 * t, 0.55 + 0.15 * t)
-        tgt.location = (0.0, 0.2 + 0.6 * t, 0.72)
-    elif scene_id == 21:
-        cam_d.lens = 48.0
-        ang = math.radians(-50.0 + 45.0 * t)
-        cam.location = (9.8 * math.cos(ang), 9.8 * math.sin(ang), 3.4 + 0.6 * t)
-        tgt.location = (0.0, 0.0, 1.95)
-    elif scene_id == 22:
-        cam_d.lens = 54.0
-        ang = math.radians(-125.0 + 70.0 * t)
-        cam.location = (3.8 * math.cos(ang), 3.8 * math.sin(ang), 1.85 + 0.25 * math.sin(math.pi * t))
-        tgt.location = (0.05, 0.0, 1.25)
-    elif scene_id == 23:
-        cam_d.lens = 65.0
-        cam.location = (-4.5 + 0.8 * t, 4.8 - 0.9 * t, 2.45 + 0.25 * t)
-        tgt.location = (-1.8, 3.2, 1.85)
-    elif scene_id == 24:
-        cam_d.lens = 52.0
-        cam.location = (-0.8 + 1.6 * t, 8.6 - 1.4 * t, 1.28 + 0.20 * t)
-        tgt.location = (0.0, 2.6, 1.12)
-    elif scene_id == 25:
-        cam_d.lens = 45.0
-        cam.location = (-0.6 + 1.2 * t, -0.4 + 0.8 * t, 12.8 - 2.2 * t)
-        tgt.location = (0.0, 0.0, 0.85)
-    elif scene_id == 26:
-        cam_d.lens = 48.0
-        cam.location = (-5.5 - 3.5 * t, -6.2 - 3.2 * t, 1.65 + 1.45 * t)
-        tgt.location = (0.0, -0.5 + 0.5 * t, 1.05)
+    rotor_objs = []
+    for o in objs:
+        nm = o.name.lower()
+        for p in o.data.polygons: p.use_smooth = True
+        o.data.materials.clear()
+        if "combustor" in nm or "augmentor_liner" in nm or "nozzle_seals" in nm:
+            o.data.materials.append(lib["thermal_barrier"])
+        elif "turbine" in nm or "hpt" in nm or "lpt" in nm or "nozzle" in nm or "mixer" in nm or "flameholder" in nm:
+            o.data.materials.append(lib["hot_nickel"])
+        elif "casing" in nm or "frame" in nm or "inlet" in nm or "duct" in nm or "gearbox" in nm or "flange" in nm or "splitter" in nm:
+            o.data.materials.append(lib["casing_alloy"])
+        elif "shaft" in nm or "bearing" in nm:
+            o.data.materials.append(lib["steel"])
+        else:
+            o.data.materials.append(lib["titanium"])
 
-    if j58_col is not None:
-        rot = f * 0.045
-        for o in j58_col.objects:
-            if any(k in o.name for k in ("Fan", "HPC", "HPT", "LPT", "Spinner", "Disk", "Blades")):
-                o.rotation_euler.x = rot
-    if cockpit_needles is not None:
-        for idx, (nd, base_a) in enumerate(cockpit_needles):
-            nd.rotation_euler = (0, -math.radians(base_a + 5.0 * math.sin(u * math.pi + idx)), 0)
+        if any(k in nm for k in ("blades_fan_r", "blades_hpc_r", "blades_hpt_r", "blades_lpt_r", "shaft")):
+            sdir = -1.0 if ("hpc" in nm or "hpt" in nm) else 1.0
+            rotor_objs.append((o, sdir))
 
-    scn.render.filepath = os.path.join(out_dir, f"s{scene_id}_{f:04d}.png")
-    bpy.ops.render.render(write_still=True)
-    print(f"[Shard {shard_id}] Rendered s{scene_id}_{f:04d}.png", flush=True)
+        if any(pat in nm for pat in CUT_PATTERNS):
+            mod = o.modifiers.new("Cutaway", "BOOLEAN")
+            mod.operation = "DIFFERENCE"
+            mod.solver = "FAST"
+            mod.object = cutter
+            bpy.context.view_layer.objects.active = o
+            bpy.ops.object.modifier_apply(modifier="Cutaway")
+
+    bpy.data.objects.remove(cutter, do_unlink=True)
+
+    bpy.ops.mesh.primitive_cone_add(vertices=64, radius1=0.36, radius2=0.0, depth=1.65,
+                                    location=(-1.45, 0, 0), rotation=(0, math.radians(-90), 0))
+    spike = bpy.context.active_object
+    for p in spike.data.polygons: p.use_smooth = True
+    spike.data.materials.append(lib["casing_alloy"])
+
+    for ang_deg in [65, 115, 245, 295]:
+        ang = math.radians(ang_deg)
+        curve_d = bpy.data.curves.new(f"Bleed_{ang_deg}", type='CURVE')
+        curve_d.dimensions = '3D'; curve_d.bevel_depth = 0.052; curve_d.bevel_resolution = 8
+        sp = curve_d.splines.new('POLY')
+        pts = [(0.25, 0.58*math.cos(ang), 0.58*math.sin(ang)),
+               (0.45, 0.74*math.cos(ang), 0.74*math.sin(ang)),
+               (2.85, 0.74*math.cos(ang), 0.74*math.sin(ang)),
+               (3.40, 0.52*math.cos(ang), 0.52*math.sin(ang))]
+        sp.points.add(len(pts)-1)
+        for idx, pt in enumerate(pts): sp.points[idx].co = (*pt, 1.0)
+        co = bpy.data.objects.new(f"Bleed_{ang_deg}", curve_d)
+        scn.collection.objects.link(co)
+        co.data.materials.append(lib["hot_nickel"])
+
+    bpy.ops.mesh.primitive_plane_add(size=80.0, location=(1.8, 0, -0.82))
+    floor = bpy.context.active_object
+    fmat = bpy.data.materials.new("Floor"); fmat.use_nodes = True
+    fbsdf = fmat.node_tree.nodes.get("Principled BSDF")
+    fbsdf.inputs["Base Color"].default_value = (0.032, 0.036, 0.044, 1.0)
+    fbsdf.inputs["Roughness"].default_value = 0.42; fbsdf.inputs["Metallic"].default_value = 0.15
+    floor.data.materials.append(fmat)
+
+    def area_light(name, loc, rot, energy, size):
+        d = bpy.data.lights.new(name, type="AREA")
+        d.energy = energy; d.size = size; d.shape = "RECTANGLE"; d.size_y = size * 0.55
+        o = bpy.data.objects.new(name, d); o.location = loc; o.rotation_euler = rot
+        scn.collection.objects.link(o)
+
+    X_MID = 1.9
+    area_light("key",  (X_MID - 3.0, -8.5, 6.5), (math.radians(50), 0, math.radians(-26)), 2900, 9.0)
+    area_light("fill", (X_MID + 2.0, 7.5, -2.4), (math.radians(-62), 0, math.radians(152)), 1100, 11.0)
+    area_light("rim",  (X_MID + 8.0, 4.0, 4.2),  (math.radians(64), 0, math.radians(116)), 2600, 5.0)
+    area_light("bore", (X_MID - 0.4, -4.2, 1.2), (math.radians(74), 0, 0), 1500, 8.0)
+
+    cam_d = bpy.data.cameras.new("Cam"); cam_d.lens = 65.0
+    cam_o = bpy.data.objects.new("Cam", cam_d)
+    scn.collection.objects.link(cam_o); scn.camera = cam_o
+    return scn, cam_o, cam_d, spike, rotor_objs
+
+if SCENE_IDX in (9, 10, 11, 13, 14, 17, 18, 19, 20, 21, 23, 24, 25, 26):
+    scn, cam_o, cam_d = setup_blackbird_scene(cockpit_mode=(SCENE_IDX in (18, 19)))
+    for f in range(N_FRAMES):
+        u = smoothstep(f / float(N_FRAMES - 1))
+        if SCENE_IDX == 9:
+            cam_d.lens = 68.0
+            cam_o.location = (2.1 - 0.6 * u, -4.8 + 0.5 * u, 1.15 + 0.15 * u)
+            target = Vector((0.0, -2.65 + 0.25 * u, 0.58))
+        elif SCENE_IDX == 10:
+            cam_d.lens = 66.0
+            cam_o.location = (3.4 - 0.5 * u, -1.6 + 0.9 * u, 1.10 + 0.15 * u)
+            target = Vector((1.55, 0.45 + 0.35 * u, 0.55))
+        elif SCENE_IDX == 11:
+            cam_d.lens = 56.0
+            cam_o.location = (-2.8 + 1.2 * u, -3.2 + 1.6 * u, 0.28 + 0.12 * u)
+            target = Vector((0.0, -0.4 + 0.6 * u, 0.48))
+        elif SCENE_IDX == 13:
+            cam_d.lens = 64.0
+            cam_o.location = (-3.8 + 0.5 * u, -0.5 + 1.8 * u, 1.85 - 0.20 * u)
+            target = Vector((-1.55, 1.2 + 0.6 * u, 0.52))
+        elif SCENE_IDX == 14:
+            cam_d.lens = 58.0
+            cam_o.location = (-1.8 + 3.6 * u, -2.6 + 1.4 * u, 2.85 - 0.25 * u)
+            target = Vector((0.0, -0.6 + 0.8 * u, 0.65))
+        elif SCENE_IDX == 17:
+            cam_d.lens = 62.0
+            cam_o.location = (-1.85 + 0.35 * u, -4.6 + 1.1 * u, 0.78 + 0.12 * u)
+            target = Vector((-1.15, 0.2 + 0.6 * u, 0.54))
+        elif SCENE_IDX == 18:
+            cam_d.lens = 26.0
+            cam_o.location = (0.06 - 0.04 * u, -2.50 - 0.04 * u, 0.665 - 0.010 * u)
+            target = Vector((-0.05, -2.69, 0.612))
+        elif SCENE_IDX == 19:
+            cam_d.lens = 30.0
+            cam_o.location = (-0.06 + 0.05 * u, -2.51 - 0.04 * u, 0.655 + 0.010 * u)
+            target = Vector((0.04, -2.69, 0.610))
+        elif SCENE_IDX == 20:
+            cam_d.lens = 56.0
+            cam_o.location = (2.8 - 1.2 * u, -1.8 + 1.8 * u, 0.32 + 0.12 * u)
+            target = Vector((0.0, -0.2 + 0.6 * u, 0.48))
+        elif SCENE_IDX == 21:
+            cam_d.lens = 48.0
+            ang = math.radians(-140.0 + 55.0 * u)
+            cam_o.location = (5.8 * math.cos(ang), 5.8 * math.sin(ang), 2.4 + 0.5 * u)
+            target = Vector((0.0, 0.0, 0.55))
+        elif SCENE_IDX == 23:
+            cam_d.lens = 66.0
+            cam_o.location = (-3.4 + 0.8 * u, 4.2 - 0.8 * u, 1.65 + 0.20 * u)
+            target = Vector((-1.35, 2.1, 0.92))
+        elif SCENE_IDX == 24:
+            cam_d.lens = 52.0
+            cam_o.location = (-0.6 + 1.2 * u, 5.8 - 0.9 * u, 0.82 + 0.15 * u)
+            target = Vector((0.0, 1.6, 0.58))
+        elif SCENE_IDX == 25:
+            cam_d.lens = 45.0
+            cam_o.location = (-0.4 + 0.8 * u, -0.4 + 0.8 * u, 7.8 - 1.4 * u)
+            target = Vector((0.0, 0.0, 0.45))
+        else:
+            cam_d.lens = 48.0
+            cam_o.location = (-3.6 - 2.2 * u, -4.4 - 2.2 * u, 1.15 + 1.05 * u)
+            target = Vector((0.0, -0.3 + 0.3 * u, 0.52))
+
+        cam_o.rotation_euler = (target - cam_o.location).to_track_quat('-Z', 'Y').to_euler()
+        scn.render.filepath = os.path.join(OUT_DIR, f"s{SCENE_IDX}_{f:04d}.png")
+        bpy.ops.render.render(write_still=True)
+
+elif SCENE_IDX in (12, 15, 16, 22):
+    scn, cam_o, cam_d, spike, rotor_objs = setup_j58_scene()
+    for f in range(N_FRAMES):
+        u = smoothstep(f / float(N_FRAMES - 1))
+        for ro, sdir in rotor_objs:
+            ro.rotation_euler.x = f * 0.024 * sdir
+        if SCENE_IDX == 12:
+            cam_d.lens = 78.0
+            cam_o.location = (-2.2 + 0.8 * u, -5.2 + 0.4 * u, 1.35 - 0.15 * u)
+            target = Vector((0.15 + 0.45 * u, 0.0, 0.02))
+        elif SCENE_IDX == 15:
+            cam_d.lens = 76.0
+            cam_o.location = (4.6 - 0.8 * u, -5.2 + 0.4 * u, 1.40 - 0.15 * u)
+            target = Vector((2.65 - 0.35 * u, 0.0, 0.02))
+        elif SCENE_IDX == 16:
+            cam_d.lens = 62.0
+            cam_o.location = (0.6 + 1.8 * u, -4.6 + 0.5 * u, 3.8 - 0.3 * u)
+            target = Vector((1.65 + 0.35 * u, 0.0, 0.25))
+        else:
+            cam_d.lens = 56.0
+            cam_o.location = (4.8 - 2.6 * u, -7.8 + 0.8 * u, 3.2 - 0.5 * u)
+            target = Vector((1.75, 0.0, 0.05))
+
+        cam_o.rotation_euler = (target - cam_o.location).to_track_quat('-Z', 'Y').to_euler()
+        scn.render.filepath = os.path.join(OUT_DIR, f"s{SCENE_IDX}_{f:04d}.png")
+        bpy.ops.render.render(write_still=True)

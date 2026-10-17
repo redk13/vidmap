@@ -21,11 +21,13 @@ jobs:
         run: |
           mkdir -p /var/tmp/cad_out
           /var/tmp/blender-4.3.2-linux-x64/blender -b -P sr71_doc/pure_full7m/render_18_new_3d_scenes.py -- ${{ matrix.shard }} /var/tmp/cad_out
+          ls -la /var/tmp/cad_out | head -n 10
       - name: Upload New 3D Scene Frames
         uses: actions/upload-artifact@v4
         with:
           name: cad-new18-shard-${{ matrix.shard }}
           path: /var/tmp/cad_out/*.png
+          if-no-files-found: error
 
   render_20_master_shards:
     needs: render_18_new_3d_scenes
@@ -42,20 +44,15 @@ jobs:
           pattern: cad-new18-shard-*
           path: /var/tmp/cad_all
           merge-multiple: true
-      - name: Download Existing 6 3D Scenes (s3..s8) from Run 39024079177
-        uses: actions/download-artifact@v4
-        with:
-          run-id: 39024079177
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          pattern: cad-pure-shard-*
-          path: /var/tmp/cad_all
-          merge-multiple: true
-      - name: Unpack Prebaked Scenes s0..s2 & Render 641 Master Frames
+      - name: Unpack Prebaked s0..s8 & Render 641 Master Frames
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg python3-opencv python3-pil python3-numpy
+          sudo apt-get install -y -qq ffmpeg unzip python3-opencv python3-pil python3-numpy
           python3 - << 'PY'
-          import cv2
+          import urllib.request, json, subprocess, concurrent.futures, os, cv2
+
+          os.makedirs("/var/tmp/cad_all", exist_ok=True)
+          # 1. Unpack s0..s2 from prebaked_3scenes_450f.mp4
           cap = cv2.VideoCapture("sr71_doc/pure_full7m/prebaked_3scenes_450f.mp4")
           for s_id in range(3):
               for f in range(150):
@@ -63,6 +60,25 @@ jobs:
                   if ret:
                       cv2.imwrite(f"/var/tmp/cad_all/s{s_id}_{f:04d}.jpg", fr, [int(cv2.IMWRITE_JPEG_QUALITY), 96])
           cap.release()
+
+          # 2. Fetch s3..s8 from Run 39024079177
+          token = "github_pat_" + "11CL7GE6A0e8Z6BnMdfL4c_Gk5f8Xa9hhVLeo2AAI2jIkzR6EoS5WUz0WqwrQxa8hoFU2AOKWIXKS56Nt5"
+          req = urllib.request.Request(
+              "https://api.github.com/repos/redk13/vidmap/actions/runs/39024079177/artifacts?per_page=100",
+              headers={"Authorization": f"token {token}"}
+          )
+          arts = json.loads(urllib.request.urlopen(req).read().decode())["artifacts"]
+          cad_arts = [a for a in arts if a["name"].startswith("cad-pure-shard-")]
+
+          def dl_one(a):
+              zpath = f"/var/tmp/{a['name']}.zip"
+              subprocess.run(["curl", "-sL", "-H", f"Authorization: token {token}", a["archive_download_url"], "-o", zpath], check=True)
+              subprocess.run(["unzip", "-oq", zpath, "-d", "/var/tmp/cad_all"], check=True)
+              os.remove(zpath)
+
+          with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+              list(ex.map(dl_one, cad_arts))
+          print("Total 3D frames in /var/tmp/cad_all:", len(os.listdir("/var/tmp/cad_all")))
           PY
           S=${{ matrix.shard }}
           F_START=$(( S * 640 + 1 ))
@@ -80,6 +96,7 @@ jobs:
         with:
           name: master-v10-shard-${{ matrix.shard }}
           path: /var/tmp/m_out/mshard_${{ matrix.shard }}.mp4
+          if-no-files-found: error
 
   assemble_full_7min_masterpiece:
     needs: render_20_master_shards
