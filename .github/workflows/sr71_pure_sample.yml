@@ -1,0 +1,61 @@
+name: SR71 Pure Primal Space 1080p Sample (30 Shards)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  render_30_pure_shards:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Blender 4.3.2 & Dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 python3-opencv python3-pil python3-numpy
+          curl -sL https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz | tar -xJ -C /var/tmp/
+      - name: Render 15 High-Sample 1080p Pure Blender Frames
+        run: |
+          F_START=$(( ${{ matrix.shard }} * 15 ))
+          F_END=$(( F_START + 15 ))
+          mkdir -p /var/tmp/shard_out
+          /var/tmp/blender-4.3.2-linux-x64/blender -b -P sr71_doc/pure_sample/render_pure_shard.py -- $F_START $F_END /var/tmp/shard_out
+          python3 sr71_doc/pure_sample/post_label_shard.py $F_START $F_END /var/tmp/shard_out
+          ffmpeg -y -start_number $F_START -framerate 30 -i /var/tmp/shard_out/final_%04d.png \
+            -c:v libx264 -preset slow -crf 14 -pix_fmt yuv420p /var/tmp/shard_out/shard_${{ matrix.shard }}.mp4
+      - name: Upload Shard MP4
+        uses: actions/upload-artifact@v4
+        with:
+          name: pure-shard-${{ matrix.shard }}
+          path: /var/tmp/shard_out/shard_${{ matrix.shard }}.mp4
+
+  assemble_pure_sample:
+    needs: render_30_pure_shards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download All 30 Shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: pure-shard-*
+          path: /var/tmp/all_shards
+          merge-multiple: true
+      - name: Concatenate 30 Shards + Master Audio
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          rm -f /var/tmp/concat.txt
+          for i in $(seq 0 29); do
+            echo "file '/var/tmp/all_shards/shard_${i}.mp4'" >> /var/tmp/concat.txt
+          done
+          ffmpeg -y -f concat -safe 0 -i /var/tmp/concat.txt -ss 185 -t 15 -i sr71_doc/vo/master_audio.mp3 \
+            -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart \
+            /var/tmp/SR71_Pure_PrimalSpace_1080p_Sample.mp4
+          ls -lh /var/tmp/SR71_Pure_PrimalSpace_1080p_Sample.mp4
+      - name: Upload Final 1080p Sample Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SR71_Pure_PrimalSpace_1080p_Sample
+          path: /var/tmp/SR71_Pure_PrimalSpace_1080p_Sample.mp4
