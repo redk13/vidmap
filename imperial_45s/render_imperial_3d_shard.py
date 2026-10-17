@@ -44,19 +44,19 @@ FONT_DIR = os.path.join(ROOT, "fonts")
 OUT_DIR = f"/tmp/imperial_shard_{SHARD_ID:02d}"
 os.makedirs(OUT_DIR, exist_ok=True)
 
-def init_cycles_1080p(samples=16, bg_rgb=(0.008, 0.009, 0.012), exposure=0.22):
+def init_cycles_1080p(samples=16, bg_rgb=(0.008, 0.009, 0.012), exposure=-0.35):
     """Proven fast Cycles 1080p setup (16 samples + FAST OIDN prefilter + 2 bounces + persistent BVH)."""
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scn = bpy.context.scene
     scn.render.engine = 'CYCLES'
     scn.cycles.device = 'CPU'
-    scn.cycles.samples = samples
+    scn.cycles.samples = 10
     scn.cycles.use_denoising = True
     scn.cycles.denoiser = 'OPENIMAGEDENOISE'
     scn.cycles.denoising_input_passes = 'RGB_ALBEDO_NORMAL'
     scn.cycles.denoising_prefilter = 'FAST'
-    scn.cycles.max_bounces = 2
-    scn.cycles.diffuse_bounces = 1
+    scn.cycles.max_bounces = 1
+    scn.cycles.diffuse_bounces = 0
     scn.cycles.glossy_bounces = 1
     scn.cycles.transparent_max_bounces = 2
     scn.cycles.sample_clamp_direct = 6.0
@@ -103,8 +103,8 @@ def make_checkered_marble_mat():
     tex_coord = nt.nodes.new("ShaderNodeTexCoord")
     checker = nt.nodes.new("ShaderNodeTexChecker")
     checker.inputs["Scale"].default_value = 14.0
-    checker.inputs["Color1"].default_value = (0.78, 0.66, 0.42, 1.0)
-    checker.inputs["Color2"].default_value = (0.14, 0.16, 0.19, 1.0)
+    checker.inputs["Color1"].default_value = (0.48, 0.36, 0.18, 1.0)
+    checker.inputs["Color2"].default_value = (0.06, 0.07, 0.09, 1.0)
     nt.links.new(tex_coord.outputs["Generated"], checker.inputs["Vector"])
     nt.links.new(checker.outputs["Color"], bsdf.inputs["Base Color"])
     return mat
@@ -146,7 +146,13 @@ def load_vertex_color_glb(glb_name, target_height=1.80, location=(0, 0, 0), rot_
     attr_node = nt.nodes.new("ShaderNodeVertexColor")
     if obj.data.color_attributes:
         attr_node.layer_name = obj.data.color_attributes[0].name
-    nt.links.new(attr_node.outputs["Color"], bsdf.inputs["Base Color"])
+    gam_node = nt.nodes.new("ShaderNodeGamma")
+    gam_node.inputs["Gamma"].default_value = 1.85
+    nt.links.new(attr_node.outputs["Color"], gam_node.inputs["Color"])
+    nt.links.new(gam_node.outputs["Color"], bsdf.inputs["Base Color"])
+    if "Emission Color" in bsdf.inputs:
+         nt.links.new(gam_node.outputs["Color"], bsdf.inputs["Emission Color"])
+        bsdf.inputs["Emission Strength"].default_value = 0.18
     obj.data.materials.clear()
     obj.data.materials.append(mat)
 
@@ -228,9 +234,9 @@ def add_area_light(name, loc, energy, size, color=(1.0, 0.95, 0.88), target=(0, 
 
 def build_curia_interior_set(include_standing_caesar=True, include_throne_caesar=False, crime_scene=False):
     mat_checker = make_checkered_marble_mat()
-    mat_trav = make_pbr_mat("Travertine", (0.68, 0.64, 0.56), roughness=0.32)
+    mat_trav = make_pbr_mat("Travertine", (0.28, 0.25, 0.21), roughness=0.36)
     mat_wood = make_pbr_mat("WalnutBench", (0.16, 0.10, 0.06), roughness=0.42)
-    mat_col = make_pbr_mat("FlutedMarble", (0.76, 0.73, 0.67), roughness=0.28)
+    mat_col = make_pbr_mat("FlutedMarble", (0.34, 0.31, 0.27), roughness=0.32)
     mat_wall = make_pbr_mat("CuriaWall", (0.24, 0.22, 0.20), roughness=0.55)
     mat_gold = make_pbr_mat("RomanGold", (0.85, 0.66, 0.22), roughness=0.22, metallic=0.88)
 
@@ -321,7 +327,7 @@ def build_curia_interior_set(include_standing_caesar=True, include_throne_caesar
         pompey_st.data.materials.clear()
         pompey_st.data.materials.append(mat_col)
 
-        mat_blood = make_pbr_mat("BloodPool", (0.38, 0.012, 0.015), roughness=0.05)
+        mat_blood = make_pbr_mat("BloodPool", (0.22, 0.004, 0.006), roughness=0.04, emission_rgb=(0.25, 0.005, 0.008), emission_str=0.35)
         for bx, by, rx, ry in [(0.0, 2.8, 1.35, 1.05), (0.55, 2.4, 0.65, 0.52), (-0.6, 3.1, 0.58, 0.48), (1.4, 1.8, 0.18, 0.12), (1.8, 1.2, 0.16, 0.11)]:
             bpy.ops.mesh.primitive_cylinder_add(vertices=32, radius=1.0, depth=0.012, location=(bx, by, 0.008))
             bp = bpy.context.active_object
@@ -338,13 +344,13 @@ def build_curia_interior_set(include_standing_caesar=True, include_throne_caesar
         for rx, ry, yaw in ring_pts:
             place_instance(sen_stand, (rx, ry, 0.0), yaw)
 
-    add_area_light("SunKey", (-4.5, -3.5, 7.2), 5200.0, 3.5, (1.0, 0.92, 0.78), (0.0, 2.0, 0.8))
-    add_area_light("CoolFill", (5.5, -2.0, 5.5), 1600.0, 4.5, (0.72, 0.82, 1.0), (0.0, 2.0, 1.0))
-    add_area_light("TribunalSpot", (0.0, 1.5, 6.8), 2800.0, 2.8, (1.0, 0.95, 0.86), (0.0, 4.5, 0.8))
+    add_area_light("SunKey", (-4.5, -3.5, 7.2), 210.0, 3.5, (1.0, 0.92, 0.78), (0.0, 2.0, 0.8))
+    add_area_light("CoolFill", (5.5, -2.0, 5.5), 55.0, 4.5, (0.72, 0.82, 1.0), (0.0, 2.0, 1.0))
+    add_area_light("TribunalSpot", (0.0, 1.5, 6.8), 125.0, 2.8, (1.0, 0.95, 0.86), (0.0, 4.5, 0.8))
 
 
 def build_scene1_pompey_complex_cutaway():
-    mat_stone = make_pbr_mat("PorticoStone", (0.76, 0.72, 0.64), roughness=0.35)
+    mat_stone = make_pbr_mat("PorticoStone", (0.32, 0.29, 0.24), roughness=0.38)
     mat_roof = make_pbr_mat("TerracottaRoof", (0.52, 0.26, 0.18), roughness=0.48)
     mat_grass = make_pbr_mat("GardenGrass", (0.14, 0.28, 0.14), roughness=0.65)
     mat_city = make_pbr_mat("DarkCityBlocks", (0.10, 0.11, 0.14), roughness=0.55)
@@ -419,8 +425,8 @@ def build_scene1_pompey_complex_cutaway():
         dot = bpy.context.active_object
         dot.data.materials.append(mat_white_emit)
 
-    add_area_light("ComplexKey", (-8.0, -9.0, 12.0), 6500.0, 5.0, (1.0, 0.93, 0.82), (0, 0, 0))
-    add_area_light("ComplexRim", (9.0, 8.0, 9.0), 3200.0, 4.5, (0.55, 0.72, 1.0), (0, 0, 0))
+    add_area_light("ComplexKey", (-8.0, -9.0, 12.0), 320.0, 5.0, (1.0, 0.93, 0.82), (0, 0, 0))
+    add_area_light("ComplexRim", (9.0, 8.0, 9.0), 110.0, 4.5, (0.55, 0.72, 1.0), (0, 0, 0))
 
 
 def build_scene3a_sliced_marble_bust():
@@ -432,7 +438,7 @@ def build_scene3a_sliced_marble_bust():
         slice_piece.location = (0.18, -0.06, 0.48)
         slice_piece.rotation_euler = (0.08, 0.18, -0.12)
 
-    mat_core = make_pbr_mat("CrimsonCore", (0.85, 0.06, 0.10), roughness=0.25, emission_rgb=(0.95, 0.08, 0.14), emission_str=4.5)
+    mat_core = make_pbr_mat("CrimsonCore", (0.85, 0.06, 0.10), roughness=0.25, emission_rgb=(0.95, 0.08, 0.14), emission_str=1.2)
     bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=3, radius=0.44, location=(0.06, -0.08, 1.62))
     core = bpy.context.active_object
     bpy.ops.object.shade_smooth()
@@ -459,8 +465,8 @@ def build_scene3a_sliced_marble_bust():
     bpy.context.collection.objects.link(rib)
     rib.data.materials.append(mat_core)
 
-    add_area_light("BustKey", (-2.6, -2.8, 2.8), 850.0, 1.8, (1.0, 0.98, 0.96), (0, 0, 1.4))
-    add_area_light("BustCrimsonRim", (2.4, 1.5, 2.2), 650.0, 1.6, (1.0, 0.12, 0.16), (0, 0, 1.4))
+    add_area_light("BustKey", (-2.6, -2.8, 2.8), 95.0, 1.8, (1.0, 0.98, 0.96), (0, 0, 1.4))
+    add_area_light("BustCrimsonRim", (2.4, 1.5, 2.2), 80.0, 1.6, (1.0, 0.12, 0.16), (0, 0, 1.4))
 
 
 def build_scene6b_stab_tableau():
@@ -475,8 +481,8 @@ def build_scene6b_stab_tableau():
         inst.location = (sx, sy, 0.0)
         inst.rotation_euler = (0, 0, math.radians(yaw))
 
-    add_area_light("StabKey", (-1.5, -2.5, 3.2), 950.0, 1.4, (1.0, 0.92, 0.80), (0, 0, 1.1))
-    add_area_light("StabRim", (1.8, 1.8, 2.8), 420.0, 1.8, (0.95, 0.22, 0.22), (0, 0, 1.2))
+    add_area_light("StabKey", (-1.5, -2.5, 3.2), 110.0, 1.4, (1.0, 0.92, 0.80), (0, 0, 1.1))
+    add_area_light("StabRim", (1.8, 1.8, 2.8), 65.0, 1.8, (0.95, 0.22, 0.22), (0, 0, 1.2))
 
 
 def set_calm_camera(cam_o, start_loc, end_loc, target_vec, u, lens=38.0):
@@ -491,7 +497,7 @@ def set_calm_camera(cam_o, start_loc, end_loc, target_vec, u, lens=38.0):
 SCENE_ID = START_FRAME // 180
 
 if SCENE_ID == 0:
-    scn = init_cycles_1080p(samples=16, bg_rgb=(0.015, 0.014, 0.012), exposure=0.20)
+    scn = init_cycles_1080p(samples=16, bg_rgb=(0.015, 0.014, 0.012), exposure=-0.35)
     build_curia_interior_set(include_standing_caesar=True, include_throne_caesar=False, crime_scene=False)
     cam_d = bpy.data.cameras.new("Cam")
     cam_o = bpy.data.objects.new("Cam", cam_d)
@@ -505,7 +511,7 @@ if SCENE_ID == 0:
         bpy.ops.render.render(write_still=True)
 
 elif SCENE_ID == 1:
-    scn = init_cycles_1080p(samples=16, bg_rgb=(0.005, 0.006, 0.009), exposure=0.22)
+    scn = init_cycles_1080p(samples=16, bg_rgb=(0.005, 0.006, 0.009), exposure=-0.35)
     build_scene1_pompey_complex_cutaway()
     cam_d = bpy.data.cameras.new("Cam")
     cam_o = bpy.data.objects.new("Cam", cam_d)
@@ -519,7 +525,7 @@ elif SCENE_ID == 1:
         bpy.ops.render.render(write_still=True)
 
 elif SCENE_ID == 3:
-    scn = init_cycles_1080p(samples=16, bg_rgb=(0.004, 0.004, 0.006), exposure=0.25)
+    scn = init_cycles_1080p(samples=16, bg_rgb=(0.004, 0.004, 0.006), exposure=-0.25)
     build_scene3a_sliced_marble_bust()
     cam_d = bpy.data.cameras.new("Cam")
     cam_o = bpy.data.objects.new("Cam", cam_d)
@@ -533,7 +539,7 @@ elif SCENE_ID == 3:
         bpy.ops.render.render(write_still=True)
 
 elif SCENE_ID == 5:
-    scn = init_cycles_1080p(samples=16, bg_rgb=(0.012, 0.012, 0.015), exposure=0.20)
+    scn = init_cycles_1080p(samples=16, bg_rgb=(0.012, 0.012, 0.015), exposure=-0.35)
     build_curia_interior_set(include_standing_caesar=False, include_throne_caesar=True, crime_scene=False)
     cam_d = bpy.data.cameras.new("Cam")
     cam_o = bpy.data.objects.new("Cam", cam_d)
@@ -547,7 +553,7 @@ elif SCENE_ID == 5:
         bpy.ops.render.render(write_still=True)
 
 elif SCENE_ID == 6:
-    scn = init_cycles_1080p(samples=16, bg_rgb=(0.003, 0.003, 0.005), exposure=0.25)
+    scn = init_cycles_1080p(samples=16, bg_rgb=(0.003, 0.003, 0.005), exposure=-0.25)
     build_scene6b_stab_tableau()
     cam_d = bpy.data.cameras.new("Cam")
     cam_o = bpy.data.objects.new("Cam", cam_d)
@@ -561,7 +567,7 @@ elif SCENE_ID == 6:
         bpy.ops.render.render(write_still=True)
 
 elif SCENE_ID == 7:
-    scn = init_cycles_1080p(samples=16, bg_rgb=(0.010, 0.010, 0.012), exposure=0.22)
+    scn = init_cycles_1080p(samples=16, bg_rgb=(0.010, 0.010, 0.012), exposure=-0.35)
     build_curia_interior_set(include_standing_caesar=False, include_throne_caesar=False, crime_scene=True)
     cam_d = bpy.data.cameras.new("Cam")
     cam_o = bpy.data.objects.new("Cam", cam_d)
