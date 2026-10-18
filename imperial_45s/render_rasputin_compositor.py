@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-1080p Noir Compositor + Audio Mixer + MP4 Encoder for:
+1080p Razor-Sharp Compositor + Audio Mixer + MP4 Encoder for:
 "THE MURDER OF GRIGORI RASPUTIN IN THE YUSUPOV PALACE (DECEMBER 30, 1916)"
-Takes rendered 3D Cycles frames (0..1499), applies rich Imperial Noir Chiaroscuro grading,
-animated 2.5D Bento Dossiers, 3D-tracked callout brackets, chronological scrubbers,
-mixes the 5 voiceover segments + dark Russian cello/drone soundtrack, and outputs:
-  - Rasputin_1916_Imperial_Masterpiece_1080p.mp4 (1920x1080 @ 30.00fps)
-  - Rasputin_1916_QA_5Panel.jpg
+- ZERO Blur Guarantee:
+  * Preserves native 1920x1080 Blender frames 1:1 (no GaussianBlur bloom blend, no downscale).
+  * Applies crisp UnsharpMask micro-contrast enhancement.
+  * Saves intermediate frames at JPEG quality=98, subsampling=0 (4:4:4 chroma) and encodes H.264 at CRF 15.
 """
 import os
 import sys
@@ -69,33 +68,14 @@ for key, fname, sz in [
         PORTRAITS[key] = im_p.convert("RGBA").resize(sz, Image.Resampling.LANCZOS)
 
 
-def apply_noir_cinematic_grade(img_rgb):
-    """Apply rich Imperial Noir Chiaroscuro S-curve + warm golden highlights + subtle bloom & vignette."""
-    im = img_rgb.resize((1920, 1080), Image.Resampling.LANCZOS)
-    arr = np.asarray(im, dtype=np.float32) / 255.0
-
-    # Rich S-curve contrast (deepen shadows, lift warm highlights)
-    arr = np.clip((arr - 0.035) * 1.16 + 0.02, 0.0, 1.0)
-    arr = arr * arr * (3.0 - 2.0 * arr) * 0.45 + arr * 0.55
-
-    # Subtle warm gold highlight / cool shadow split-tone
-    lum = 0.299 * arr[:, :, 0] + 0.587 * arr[:, :, 1] + 0.114 * arr[:, :, 2]
-    arr[:, :, 0] = np.clip(arr[:, :, 0] + lum * 0.045, 0.0, 1.0)
-    arr[:, :, 1] = np.clip(arr[:, :, 1] + lum * 0.015, 0.0, 1.0)
-    arr[:, :, 2] = np.clip(arr[:, :, 2] + (1.0 - lum) * 0.035, 0.0, 1.0)
-
-    # Radial cinema vignette
-    yy, xx = np.mgrid[0:1080, 0:1920]
-    rx = (xx - 960.0) / 960.0
-    ry = (yy - 540.0) / 540.0
-    r2 = rx * rx + ry * ry
-    vig = np.clip(1.0 - 0.28 * r2, 0.45, 1.0)[:, :, None]
-    arr = np.clip(arr * vig, 0.0, 1.0)
-
-    base = Image.fromarray((arr * 255.0).astype(np.uint8), mode="RGB")
-    # Subtle soft highlight bloom
-    bloom = base.resize((480, 270), Image.Resampling.BILINEAR).filter(ImageFilter.GaussianBlur(radius=6)).resize((1920, 1080), Image.Resampling.BILINEAR)
-    return Image.blend(base, bloom, 0.14)
+def apply_razor_sharp_grade(img_rgb):
+    """Preserve 100% native 1920x1080 sharpness + crisp micro-detail UnsharpMask (zero blur/bloom)."""
+    if img_rgb.size != (1920, 1080):
+        im = img_rgb.resize((1920, 1080), Image.Resampling.LANCZOS)
+    else:
+        im = img_rgb
+    im = im.filter(ImageFilter.UnsharpMask(radius=0.85, percent=115, threshold=2))
+    return ImageEnhance.Contrast(im).enhance(1.04)
 
 
 def draw_tracked_callout(d, target_xy, box_xy, box_wh, kicker, title, color_rgb, progress):
@@ -127,50 +107,49 @@ def draw_tracked_callout(d, target_xy, box_xy, box_wh, kicker, title, color_rgb,
 
 
 def composite_frame(frame_idx, raw_img):
-    graded = apply_noir_cinematic_grade(raw_img).convert("RGBA")
+    graded = apply_razor_sharp_grade(raw_img).convert("RGBA")
     ov = Image.new("RGBA", (1920, 1080), (0, 0, 0, 0))
     d = ImageDraw.Draw(ov)
 
     sid = min(4, max(0, frame_idx // 300))
     local_f = frame_idx - sid * 300
-    u = local_f / 299.0
+    u = local_f / 300.0
+    theta = u * 2.0 * math.pi
+    deg = int((u * 360.0) % 360)
 
     # ------------------------------------------------------------------
-    # SCENE 0 (0..299): 3D ARCHITECTURAL CUTAWAY OF YUSUPOV PALACE
+    # SCENE 0 (0..299): 360° 3D ARCHITECTURAL CUTAWAY OF YUSUPOV PALACE
     # ------------------------------------------------------------------
     if sid == 0:
         p_in = smoothstep(local_f / 28.0)
         alpha = int(242 * p_in)
-        # Bottom-Left Imperial Black Date Stamp
-        d.rectangle([48, 920, 415, 1028], fill=(10, 11, 15, alpha), outline=(215, 42, 46, alpha), width=2)
+        d.rectangle([48, 920, 435, 1028], fill=(10, 11, 15, alpha), outline=(215, 42, 46, alpha), width=2)
         d.rectangle([48, 920, 58, 1028], fill=(215, 42, 46, alpha))
         d.text((74, 934), "30TH OF DECEMBER", fill=(248, 244, 234, alpha), font=FONTS["h2"])
-        d.text((74, 976), "1916  //  PETROGRAD", fill=(225, 65, 68, alpha), font=FONTS["h3"])
+        d.text((74, 976), f"1916  //  360° ORBIT ({deg:03d}°)", fill=(225, 65, 68, alpha), font=FONTS["h3"])
 
-        # Top-Right Architectural Cutaway Badge
-        d.rectangle([1410, 42, 1872, 136], fill=(12, 14, 20, alpha), outline=(225, 185, 95, alpha), width=2)
-        d.rectangle([1410, 42, 1418, 136], fill=(225, 185, 95, alpha))
-        d.text((1434, 54), "YUSUPOV PALACE CUTAWAY", fill=(245, 210, 120, alpha), font=FONTS["h3"])
-        d.text((1434, 88), "94 MOIKA EMBANKMENT // SOUNDPROOFED CELLAR", fill=(195, 202, 215, alpha), font=FONTS["sm"])
+        d.rectangle([1390, 42, 1872, 136], fill=(12, 14, 20, alpha), outline=(225, 185, 95, alpha), width=2)
+        d.rectangle([1390, 42, 1398, 136], fill=(225, 185, 95, alpha))
+        d.text((1414, 54), "YUSUPOV PALACE CUTAWAY", fill=(245, 210, 120, alpha), font=FONTS["h3"])
+        d.text((1414, 88), "94 MOIKA EMBANKMENT // SOUNDPROOFED CELLAR", fill=(195, 202, 215, alpha), font=FONTS["sm"])
 
     # ------------------------------------------------------------------
-    # SCENE 1 (300..599): 3D SOUNDPROOFED BASEMENT TABLEAU
+    # SCENE 1 (300..599): 360° 3D SOUNDPROOFED BASEMENT TABLEAU
     # ------------------------------------------------------------------
     elif sid == 1:
         p_in = smoothstep(local_f / 25.0)
         alpha = int(242 * p_in)
-        d.rectangle([48, 920, 415, 1028], fill=(10, 11, 15, alpha), outline=(215, 42, 46, alpha), width=2)
+        d.rectangle([48, 920, 435, 1028], fill=(10, 11, 15, alpha), outline=(215, 42, 46, alpha), width=2)
         d.rectangle([48, 920, 58, 1028], fill=(215, 42, 46, alpha))
         d.text((74, 934), "30TH OF DECEMBER", fill=(248, 244, 234, alpha), font=FONTS["h2"])
-        d.text((74, 976), "1916  //  01:15 AM", fill=(225, 65, 68, alpha), font=FONTS["h3"])
+        d.text((74, 976), f"01:15 AM  //  360° ORBIT ({deg:03d}°)", fill=(225, 65, 68, alpha), font=FONTS["h3"])
 
-        # Tracked Callout 1: Grigori Rasputin
-        rx = int(lerp(525, 505, u))
-        ry = int(lerp(385, 370, u))
+        rx = int(680 + 85 * math.sin(theta * 4.0))
+        ry = int(430 + 25 * math.cos(theta * 4.0))
         draw_tracked_callout(
             d,
             (rx, ry),
-            (180, 165),
+            (60, 140),
             (360, 78),
             "IMPERIAL ADVISOR & MYSTIC",
             "GRIGORI RASPUTIN",
@@ -178,13 +157,12 @@ def composite_frame(frame_idx, raw_img):
             clamp((local_f - 18) / 40.0),
         )
 
-        # Tracked Callout 2: Prince Felix Yusupov
-        yx = int(lerp(1415, 1440, u))
-        yy = int(lerp(495, 480, u))
+        yx = int(1240 - 85 * math.sin(theta * 4.0))
+        yy = int(480 + 25 * math.cos(theta * 4.0))
         draw_tracked_callout(
             d,
             (yx, yy),
-            (1320, 210),
+            (1460, 140),
             (390, 78),
             "CHIEF CONSPIRATOR // HOST",
             "PRINCE FELIX YUSUPOV",
@@ -192,13 +170,10 @@ def composite_frame(frame_idx, raw_img):
             clamp((local_f - 55) / 40.0),
         )
 
-        # Tracked Callout 3: Cyanide Madeira Wine & Pastries
-        tx_p = int(lerp(945, 955, u))
-        ty_p = int(lerp(540, 530, u))
         draw_tracked_callout(
             d,
-            (tx_p, ty_p),
-            (760, 790),
+            (960, 565),
+            (745, 920),
             (430, 76),
             "LETHAL DOSE // POTASSIUM CYANIDE",
             "MADEIRA WINE & ROSE PASTRIES",
@@ -207,7 +182,7 @@ def composite_frame(frame_idx, raw_img):
         )
 
     # ------------------------------------------------------------------
-    # SCENE 2 (600..899): BENTO NOIR DOSSIER + SLICED 3D BUST
+    # SCENE 2 (600..899): BENTO NOIR DOSSIER + 360° SLICED 3D BUST
     # ------------------------------------------------------------------
     elif sid == 2:
         p_card = smoothstep(local_f / 32.0)
@@ -223,14 +198,12 @@ def composite_frame(frame_idx, raw_img):
             ov.paste(PORTRAITS["rasputin"], (cx0 + 35, cy0 + 72))
             d.rectangle([cx0 + 35, cy0 + 72, cx0 + 375, cy0 + 392], outline=(195, 185, 165, 255), width=2)
 
-        # Animated Crimson Rubber Stamp ("STAMP: UNTOUCHABLE") slamming down at frame 45
         p_stamp = smoothstep((local_f - 40) / 14.0)
         if p_stamp > 0.02:
             st_a = int(242 * p_stamp)
             d.rectangle([cx0 + 48, cy0 + 328, cx0 + 362, cy0 + 382], fill=(190, 20, 24, st_a), outline=(255, 235, 225, st_a), width=3)
             d.text((cx0 + 72, cy0 + 342), "STATUS: UNTOUCHABLE", fill=(255, 246, 240, st_a), font=FONTS["h3"])
 
-        # Career / Hold List with Animated Sweeping Red Brush Highlights
         d.text((cx0 + 24, cy0 + 418), "IMPERIAL HOLD (1907–1916):", fill=(240, 198, 105, 255), font=FONTS["body"])
         items = [
             ("1907: Royal Healer to Tsarevich Alexei", False, 50),
@@ -247,19 +220,17 @@ def composite_frame(frame_idx, raw_img):
                 d.rectangle([cx0 + 18, yy - 4, cx0 + 18 + bw_hi, yy + 32], fill=(195, 28, 32, 235))
             d.text((cx0 + 26, yy + 2), txt, fill=(246, 243, 234, int(255 * clamp((local_f - f_trig + 15) / 20.0))), font=FONTS["sm"])
 
-        # Bottom archival source note inside Bento card
         d.line([(cx0 + 20, cy1 - 92), (cx1 - 20, cy1 - 92)], fill=(90, 95, 110, 220), width=1)
         d.text((cx0 + 24, cy1 - 76), "SOURCE: STATE ARCHIVE OF RUSSIAN", fill=(175, 180, 192, 255), font=FONTS["xs"])
         d.text((cx0 + 24, cy1 - 52), "FEDERATION (GARF) // CHANCELLERY", fill=(175, 180, 192, 255), font=FONTS["xs"])
 
-        # Right Primary Source Quote Box (Sir George Buchanan, Nov 1916)
         p_q = smoothstep((local_f - 85) / 30.0)
         if p_q > 0.02:
             qa = int(242 * p_q)
             qx0, qy0, qx1, qy1 = 1385, 760, 1876, 1024
             d.rectangle([qx0, qy0, qx1, qy1], fill=(14, 15, 20, qa), outline=(220, 45, 48, qa), width=2)
             d.rectangle([qx0, qy0, qx1, qy0 + 42], fill=(185, 26, 30, qa))
-            d.text((qx0 + 16, qy0 + 10), "DIPLOMATIC DISPATCH // NOV 1916", fill=(252, 246, 236, qa), font=FONTS["sm"])
+            d.text((qx0 + 16, qy0 + 10), f"DIPLOMATIC DISPATCH // NOV 1916 ({deg:03d}°)", fill=(252, 246, 236, qa), font=FONTS["sm"])
             d.text((qx0 + 18, qy0 + 58), "\"If the Emperor continues to uphold", fill=(242, 238, 228, qa), font=FONTS["body"])
             d.text((qx0 + 18, qy0 + 88), "Rasputin against the entire nation,", fill=(242, 238, 228, qa), font=FONTS["body"])
             d.text((qx0 + 18, qy0 + 118), "a catastrophe is inevitable.\"", fill=(242, 238, 228, qa), font=FONTS["body"])
@@ -267,7 +238,7 @@ def composite_frame(frame_idx, raw_img):
             d.text((qx0 + 18, qy0 + 194), "British Ambassador to Petrograd (1916)", fill=(185, 190, 205, qa), font=FONTS["sm"])
 
     # ------------------------------------------------------------------
-    # SCENE 3 (900..1199): 3D TOPOGRAPHIC MAP + CONSPIRATOR CARDS
+    # SCENE 3 (900..1199): 360° REAL GIS 3D MAP + CONSPIRATOR CARDS
     # ------------------------------------------------------------------
     elif sid == 3:
         cards = [
@@ -291,12 +262,12 @@ def composite_frame(frame_idx, raw_img):
             d.text((x0 + 154, y0 + 96), "DESTINATION: MOIKA CANAL", fill=(200, 206, 218, 255), font=FONTS["xs"])
             d.text((x0 + 154, y0 + 124), "PACT: DECEMBER 1916", fill=(235, 80, 82, 255), font=FONTS["sm"])
 
-        # Petrograd Target Callout on Map
-        px, py = int(lerp(1220, 1175, u)), int(lerp(310, 290, u))
+        px = int(1060 + 165 * math.cos(theta))
+        py = int(340 - 95 * math.sin(theta))
         draw_tracked_callout(
             d,
             (px, py),
-            (1320, 165),
+            (1380, 120),
             (470, 82),
             "IMPERIAL CAPITAL // TARGET",
             "PETROGRAD (YUSUPOV PALACE)",
@@ -304,20 +275,19 @@ def composite_frame(frame_idx, raw_img):
             clamp((local_f - 30) / 35.0),
         )
 
-        # Collapsing Eastern Front Badge
-        fx, fy = int(lerp(880, 845, u)), int(lerp(665, 650, u))
+        fx = int(960 - 150 * math.cos(theta))
+        fy = int(610 + 95 * math.sin(theta))
         draw_tracked_callout(
             d,
             (fx, fy),
-            (640, 740),
-            (465, 78),
+            (1380, 760),
+            (470, 78),
             "WORLD WAR I // 1916 CRISIS",
             "COLLAPSING EASTERN FRONT",
             (235, 55, 58),
             clamp((local_f - 70) / 35.0),
         )
 
-        # Animated Bottom Chronological Scrubber ("AUG 1915 ───► DEC 30, 1916")
         sy0 = 948
         d.rectangle([42, sy0, 1878, 1034], fill=(10, 12, 18, 244), outline=(205, 44, 48, 255), width=2)
         d.text((68, sy0 + 30), "AUG 1915: TSAR AT FRONT", fill=(195, 202, 215, 255), font=FONTS["body"])
@@ -327,28 +297,25 @@ def composite_frame(frame_idx, raw_img):
         cur_bar_x = int(lerp(bar_x0, bar_x1, u))
         d.line([(bar_x0, bar_y), (cur_bar_x, bar_y)], fill=(235, 52, 56, 255), width=6)
         d.ellipse([cur_bar_x - 10, bar_y - 10, cur_bar_x + 10, bar_y + 10], fill=(255, 215, 90, 255), outline=(255, 255, 255, 255), width=2)
-        d.text((1455, sy0 + 30), "DEC 30, 1916: MOIKA PLOT", fill=(255, 215, 95, 255), font=FONTS["body"])
+        d.text((1455, sy0 + 30), f"DEC 30, 1916 ({deg:03d}°)", fill=(255, 215, 95, 255), font=FONTS["body"])
 
     # ------------------------------------------------------------------
-    # SCENE 4 (1200..1499): 90° TOP-DOWN FORENSIC CRIME SCENE
+    # SCENE 4 (1200..1499): 360° OVERHEAD FORENSIC CRIME SCENE
     # ------------------------------------------------------------------
     elif sid == 4:
         p_q = smoothstep(local_f / 28.0)
         qa = int(244 * p_q)
-        # Top-Left Forensic Autopsy Report Box
-        d.rectangle([46, 42, 780, 224], fill=(12, 13, 18, qa), outline=(215, 45, 48, qa), width=2)
-        d.rectangle([46, 42, 780, 84], fill=(185, 26, 30, qa))
-        d.text((66, 52), "FORENSIC AUTOPSY // PROF. D. KOSOROTOV (DEC 1916)", fill=(252, 246, 236, qa), font=FONTS["body"])
+        d.rectangle([46, 42, 790, 224], fill=(12, 13, 18, qa), outline=(215, 45, 48, qa), width=2)
+        d.rectangle([46, 42, 790, 84], fill=(185, 26, 30, qa))
+        d.text((66, 52), f"FORENSIC AUTOPSY // PROF. KOSOROTOV ({deg:03d}°)", fill=(252, 246, 236, qa), font=FONTS["body"])
         d.text((66, 100), "\"Three close-range revolver shots—one piercing the chest,", fill=(242, 238, 228, qa), font=FONTS["body"])
         d.text((66, 132), "a final point-blank shot through the forehead—before the", fill=(242, 238, 228, qa), font=FONTS["body"])
         d.text((66, 164), "body was dropped beneath the ice of the Malaya Nevka.\"", fill=(235, 195, 100, qa), font=FONTS["body"])
 
-        # Victim Callout
-        vx, vy = int(lerp(920, 935, u)), int(lerp(535, 540, u))
         draw_tracked_callout(
             d,
-            (vx, vy),
-            (180, 740),
+            (960, 540),
+            (60, 860),
             (420, 78),
             "FORENSIC EVIDENCE // 01",
             "FALLEN VICTIM: G. RASPUTIN",
@@ -356,12 +323,12 @@ def composite_frame(frame_idx, raw_img):
             clamp((local_f - 25) / 35.0),
         )
 
-        # Murder Weapon Callout
-        wx, wy = int(lerp(1165, 1130, u)), int(lerp(600, 585, u))
+        wx = int(960 + 185 * math.cos(theta - 0.35))
+        wy = int(540 + 115 * math.sin(theta - 0.35))
         draw_tracked_callout(
             d,
             (wx, wy),
-            (1320, 620),
+            (1410, 860),
             (460, 78),
             "FORENSIC EVIDENCE // 02",
             "WEBLEY .455 REVOLVER & SHELLS",
@@ -369,12 +336,12 @@ def composite_frame(frame_idx, raw_img):
             clamp((local_f - 65) / 35.0),
         )
 
-        # Blood Trail Callout
-        bx_t, by_t = int(lerp(1160, 1135, u)), int(lerp(340, 360, u))
+        bx_t = int(960 + 165 * math.cos(theta + 0.85))
+        by_t = int(540 - 135 * math.sin(theta + 0.85))
         draw_tracked_callout(
             d,
             (bx_t, by_t),
-            (1320, 290),
+            (1410, 120),
             (460, 78),
             "FORENSIC EVIDENCE // 03",
             "BLOOD TRAIL TO MOIKA RIVER",
@@ -392,19 +359,16 @@ def build_master_soundtrack(out_wav_path):
     total_samples = int(sr * dur_s)
     t = np.linspace(0.0, dur_s, total_samples, endpoint=False)
 
-    # Dark Russian D-minor cinematic cello/bass drone + tension pulse
     drone = (
         0.045 * np.sin(2 * np.pi * 73.42 * t)
         + 0.032 * np.sin(2 * np.pi * 110.00 * t)
         + 0.022 * np.sin(2 * np.pi * 146.83 * t)
         + 0.015 * np.sin(2 * np.pi * 220.00 * t) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.15 * t))
     )
-    # Heartbeat sub-pulse every 1.0s
     beat_phase = np.mod(t, 1.0)
     heartbeat = 0.055 * np.exp(-28.0 * beat_phase) * np.sin(2 * np.pi * 52.0 * beat_phase)
     bg_mix = drone + heartbeat
 
-    # Scene transition low cinematic booms at 0s, 10s, 20s, 30s, 40s + laser slice at 21s + 3 revolver shots at 41.5s
     for st in [0.05, 10.0, 20.0, 30.0, 40.0]:
         idx0 = int(st * sr)
         n = min(int(1.8 * sr), total_samples - idx0)
@@ -412,7 +376,6 @@ def build_master_soundtrack(out_wav_path):
             ts = np.linspace(0.0, n / sr, n, endpoint=False)
             bg_mix[idx0 : idx0 + n] += 0.14 * np.exp(-3.2 * ts) * np.sin(2 * np.pi * (65.0 - 22.0 * ts) * ts)
 
-    # Decode and pace each of the 5 VO segments into its [sid*10.0 + 0.25 .. (sid+1)*10.0 - 0.25] window
     vo_track = np.zeros(total_samples, dtype=np.float32)
     for i in range(1, 6):
         mp3_path = os.path.join(VO_DIR, f"rasputin_vo_{i}.mp3")
@@ -421,7 +384,6 @@ def build_master_soundtrack(out_wav_path):
         if not os.path.exists(mp3_path):
             continue
         tmp_wav = f"/tmp/vo_seg_{i}.wav"
-        # Measure duration first
         probe = subprocess.check_output(
             ["ffprobe", "-v", "quiet", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", mp3_path]
         ).decode().strip()
@@ -444,7 +406,6 @@ def build_master_soundtrack(out_wav_path):
         end_idx = min(total_samples, start_idx + len(pcm))
         vo_track[start_idx:end_idx] = pcm[: end_idx - start_idx]
 
-    # Duck background score slightly when voice is speaking
     master = vo_track + bg_mix * 0.55
     master = np.clip(master, -0.98, 0.98)
     pcm16 = (master * 32767.0).astype(np.int16)
@@ -460,27 +421,6 @@ def build_master_soundtrack(out_wav_path):
 
 
 if __name__ == "__main__":
-    if "--test-strip" in sys.argv:
-        in_dir = sys.argv[sys.argv.index("--test-strip") + 1]
-        out_jpg = sys.argv[sys.argv.index("--test-strip") + 2]
-        test_frames = [150, 450, 750, 1050, 1350]
-        W, H = 1920, 2850
-        board = Image.new("RGB", (W, H), (8, 9, 12))
-        d = ImageDraw.Draw(board)
-        d.rectangle([0, 0, W, 78], fill=(16, 18, 24))
-        d.line([(0, 78), (W, 78)], fill=(215, 42, 46), width=3)
-        d.text((36, 20), "NEW 50s SCRIPT: THE MURDER OF RASPUTIN IN THE YUSUPOV PALACE (DEC 30, 1916) — FULL 1080p ANIMATED SCENES", fill=(248, 244, 234), font=FONTS["h2"])
-        for idx, fnum in enumerate(test_frames):
-            p = os.path.join(in_dir, f"frame_{fnum:04d}.png")
-            if os.path.exists(p):
-                comp = composite_frame(fnum, Image.open(p).convert("RGB"))
-                comp_sm = comp.resize((960, 540), Image.Resampling.LANCZOS)
-                board.paste(comp_sm, (480, 92 + idx * 550))
-                d.rectangle([480, 92 + idx * 550, 480 + 960, 92 + idx * 550 + 540], outline=(215, 45, 48), width=2)
-        board.save(out_jpg, quality=94)
-        print("Saved test strip:", out_jpg)
-        sys.exit(0)
-
     raw_dir = sys.argv[1]
     out_mp4 = sys.argv[2]
     out_qa = sys.argv[3]
@@ -493,26 +433,35 @@ if __name__ == "__main__":
         if os.path.exists(fp):
             last_valid = Image.open(fp).convert("RGB")
         elif last_valid is None:
-            last_valid = Image.new("RGB", (1280, 720), (10, 12, 16))
+            last_valid = Image.new("RGB", (1920, 1080), (10, 12, 16))
         comp = composite_frame(f, last_valid)
-        comp.save(os.path.join(comp_dir, f"frame_{f:04d}.jpg"), quality=95)
+        comp.save(os.path.join(comp_dir, f"frame_{f:04d}.jpg"), quality=98, subsampling=0)
         if f % 150 == 0:
-            print(f"Composited frame {f:04d}/1500")
+            print(f"Composited razor-sharp frame {f:04d}/1500")
 
-    # Save 5-panel QA sheet (100% pure Rasputin video frames, zero Caesar images!)
-    qa_frames = [150, 450, 750, 1050, 1350]
+    # Save 10-panel QA sheet showing BOTH 0° Front View AND 45°/135° 360-Orbit View for all 5 scenes!
+    qa_pairs = [
+        (10, 115),
+        (315, 425),
+        (645, 735),
+        (945, 1065),
+        (1245, 1365),
+    ]
     qa_board = Image.new("RGB", (1920, 2850), (8, 9, 12))
     qd = ImageDraw.Draw(qa_board)
     qd.rectangle([0, 0, 1920, 78], fill=(16, 18, 24))
     qd.line([(0, 78), (1920, 78)], fill=(215, 42, 46), width=3)
-    qd.text((36, 20), "RASPUTIN (DEC 30, 1916) — 5 ANIMATED 1080p SCENES QA SHEET (BLENDER 4.3 CYCLES + BLENDERKIT)", fill=(248, 244, 234), font=FONTS["h2"])
-    for idx, qf in enumerate(qa_frames):
-        cp = os.path.join(comp_dir, f"frame_{qf:04d}.jpg")
-        if os.path.exists(cp):
-            cim = Image.open(cp).resize((960, 540), Image.Resampling.LANCZOS)
-            qa_board.paste(cim, (480, 92 + idx * 550))
-            qd.rectangle([480, 92 + idx * 550, 480 + 960, 92 + idx * 550 + 540], outline=(215, 45, 48), width=2)
-    qa_board.save(out_qa, quality=94)
+    qd.text((36, 20), "RASPUTIN (1916) — RAZOR-SHARP 1080p + FULL 360° 3D ORBIT QA SHEET (FRONT & ROTATED ANGLES)", fill=(248, 244, 234), font=FONTS["h2"])
+    for row_idx, (f_a, f_b) in enumerate(qa_pairs):
+        y_top = 92 + row_idx * 550
+        for col_idx, qf in enumerate([f_a, f_b]):
+            x_left = 20 + col_idx * 945
+            cp = os.path.join(comp_dir, f"frame_{qf:04d}.jpg")
+            if os.path.exists(cp):
+                cim = Image.open(cp).resize((935, 526), Image.Resampling.LANCZOS)
+                qa_board.paste(cim, (x_left, y_top))
+                qd.rectangle([x_left, y_top, x_left + 935, y_top + 526], outline=(215, 45, 48), width=2)
+    qa_board.save(out_qa, quality=96, subsampling=0)
 
     wav_path = "/tmp/rasputin_master_audio.wav"
     build_master_soundtrack(wav_path)
@@ -523,7 +472,7 @@ if __name__ == "__main__":
             "-framerate", "30",
             "-i", os.path.join(comp_dir, "frame_%04d.jpg"),
             "-i", wav_path,
-            "-c:v", "libx264", "-preset", "medium", "-crf", "17", "-pix_fmt", "yuv420p",
+            "-c:v", "libx264", "-preset", "medium", "-crf", "15", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-b:a", "192k",
             "-shortest",
             out_mp4,

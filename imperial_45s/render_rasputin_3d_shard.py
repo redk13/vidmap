@@ -1,15 +1,24 @@
 #!/usr/bin/env python3
 """
-Hybrid Masterpiece 3D Pipeline in Blender 4.3 Cycles (30.00 fps):
-- Scenes 0, 1, 2, 4: High-Density 3D Depth-Displaced Camera Projection Meshes built from
-  the approved hyper-detailed 3D keyframes (rasputin_kf_1, 2, 3, 5.jpg) + animated 3D camera
-  (Orbit / Dolly / 3D Split / Top-Down Crane Pull-Up), 3D world-locked extruded typography,
-  animated 3D footsteps, flickering 3D candle lights, and real 3D Webley .455 Revolver mesh.
-- Scene 3 (Frames 900..1199): 100% Real GIS Geography (Natural Earth 50m GeoJSON of Imperial
-  Russia, Baltic Sea, Gulf of Finland & 1916 Eastern Front) rendered in Blender 4.3 Cycles
-  as sculpted volcanic obsidian 3D relief terrain on a white perspective wireframe grid,
-  with glowing molten crimson Eastern Front borders, royal cobalt-blue Russian borders,
-  and a towering golden laser beacon at Petrograd (59.93°N, 30.33°E).
+Hybrid Masterpiece 3D 360-Degree Pipeline in Blender 4.3 (1920x1080 @ 30.00 fps):
+- ZERO Blur Guarantee:
+  * Native 1920x1080 render resolution (no 720p upscale).
+  * use_denoising = False (no OpenImageDenoise smearing).
+  * filter_size = 0.65 (razor-sharp subpixel AA filter).
+  * max_bounces = 0 + 100% deterministic noise-free shader node graphs (Cubic 2560x1440 textures
+    + analytical 3D Hemisphere Normal/Fresnel/Specular studio shaders for 3D statues, columns, revolver & GIS terrain).
+  * Flat, un-warped high-resolution architectural projection panels (zero bumpy low-res mesh distortion).
+- True 360° (0° -> 360°) 3D Camera Orbit in ALL 5 Scenes:
+  * Scene 0 (0..299): Full 360° 3D Orbit around the 4-Sided Yusupov Palace Cutaway Diorama Island
+    with 3D Corinthian columns, 3D stepped canal base, 3D glowing crimson staircase footsteps & 3D titles.
+  * Scene 1 (300..599): Full 360° 3D Orbit around the Soundproofed Basement 3D Pavilion with 3D marble
+    statues of Rasputin & Prince Yusupov, 3D mahogany table, and 3D golden candelabra.
+  * Scene 2 (600..899): Full 360° 3D Turntable Rotation of the Bisected 3D Marble Bust Monument +
+    real 3D Rasputin bust split at 38° by the glowing crimson laser beam.
+  * Scene 3 (900..1199): Full 360° 3D Orbit around the 100% Real GIS (Natural Earth 50m GeoJSON)
+    3D Obsidian Topographic Relief Map of Russia & the 1916 Eastern Front + Golden Petrograd Laser Spire.
+  * Scene 4 (1200..1499): Full 360° 3D Forensic Overhead Crane Orbit around the Top-Down Crime Scene
+    Courtyard, 3D Corinthian corner columns, 3D marble statues, and 3D Webley .455 Revolver & brass shells.
 """
 import os
 import sys
@@ -20,7 +29,6 @@ import random
 import bpy
 import bmesh
 import mathutils
-import numpy as np
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSETS_DIR = os.path.join(SCRIPT_DIR, "assets")
@@ -48,23 +56,24 @@ def lerp(a, b, t):
     return a + (b - a) * t
 
 
-def configure_cycles(samples_override=None):
+def configure_sharp_1080p():
+    """Configure Blender 4.3 Cycles for 100% noise-free, zero-blur native 1920x1080 rendering."""
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
-    scene.cycles.samples = samples_override if samples_override else (10 if PREVIEW_MODE else 18)
-    scene.cycles.use_denoising = True
-    scene.cycles.denoiser = "OPENIMAGEDENOISE"
-    scene.cycles.denoising_prefilter = "FAST"
+    scene.cycles.samples = 4
+    scene.cycles.use_denoising = False
+    scene.cycles.filter_size = 0.65
     scene.cycles.use_persistent_data = True
-    scene.cycles.max_bounces = 1
-    scene.cycles.diffuse_bounces = 1
-    scene.cycles.glossy_bounces = 1
-    scene.cycles.transmission_bounces = 1
+    scene.cycles.max_bounces = 0
+    scene.cycles.diffuse_bounces = 0
+    scene.cycles.glossy_bounces = 0
+    scene.cycles.transmission_bounces = 0
+    scene.cycles.volume_bounces = 0
     scene.cycles.transparent_max_bounces = 2
-    scene.render.resolution_x = 1280
-    scene.render.resolution_y = 720
+    scene.render.resolution_x = 1920
+    scene.render.resolution_y = 1080
     scene.render.resolution_percentage = 100
     scene.render.fps = 30
     scene.view_settings.view_transform = "Standard"
@@ -72,170 +81,223 @@ def configure_cycles(samples_override=None):
     return scene
 
 
-def setup_world(col=(0.003, 0.004, 0.007), strength=1.0):
+def setup_world(col=(0.004, 0.005, 0.009)):
     w = bpy.data.worlds.new("World")
     bpy.context.scene.world = w
     w.use_nodes = True
     bg = w.node_tree.nodes.get("Background")
     bg.inputs[0].default_value = (*col, 1.0)
-    bg.inputs[1].default_value = strength
+    bg.inputs[1].default_value = 1.0
 
 
-def make_pbr_mat(name, color, rough=0.28, metal=0.0, coat=0.0, emit_col=None, emit_str=0.0):
-    m = bpy.data.materials.new(name)
-    m.use_nodes = True
-    bsdf = m.node_tree.nodes.get("Principled BSDF")
-    if bsdf:
-        bsdf.inputs["Base Color"].default_value = (*color, 1.0)
-        bsdf.inputs["Roughness"].default_value = rough
-        bsdf.inputs["Metallic"].default_value = metal
-        if "Coat Weight" in bsdf.inputs and coat > 0:
-            bsdf.inputs["Coat Weight"].default_value = coat
-            bsdf.inputs["Coat Roughness"].default_value = 0.08
-        if emit_col and emit_str > 0.0:
-            if "Emission Color" in bsdf.inputs:
-                bsdf.inputs["Emission Color"].default_value = (*emit_col, 1.0)
-            if "Emission Strength" in bsdf.inputs:
-                bsdf.inputs["Emission Strength"].default_value = emit_str
-    return m
+def look_at(cam_obj, target_pt):
+    direction = mathutils.Vector(target_pt) - cam_obj.location
+    rot_quat = direction.to_track_quat("-Z", "Y")
+    cam_obj.rotation_euler = rot_quat.to_euler("XYZ")
 
 
-def make_obsidian_terrain_mat(name, c1, c2, rough=0.26, coat=0.45, scale=7.5, bump_str=0.55):
+def make_crisp_tex_mat(name, img_filename, strength=1.0):
+    """
+    100% unblurred, noise-free high-resolution texture material.
+    Connects Cubic-interpolated 2560x1440 image texture directly to Emission -> Surface
+    so Cycles samples the exact native pixels with 4x AA and ZERO denoiser blur.
+    """
     m = bpy.data.materials.new(name)
     m.use_nodes = True
     nt = m.node_tree
-    bsdf = nt.nodes.get("Principled BSDF")
-    bsdf.inputs["Roughness"].default_value = rough
-    if "Coat Weight" in bsdf.inputs:
-        bsdf.inputs["Coat Weight"].default_value = coat
-        bsdf.inputs["Coat Roughness"].default_value = 0.12
-    tc = nt.nodes.new("ShaderNodeTexCoord")
-    noise = nt.nodes.new("ShaderNodeTexNoise")
-    noise.inputs["Scale"].default_value = scale
-    noise.inputs["Detail"].default_value = 4.0
-    noise.inputs["Roughness"].default_value = 0.72
-    vor = nt.nodes.new("ShaderNodeTexVoronoi")
-    vor.feature = "DISTANCE_TO_EDGE"
-    vor.inputs["Scale"].default_value = scale * 1.4
-    mix = nt.nodes.new("ShaderNodeMix")
-    mix.data_type = "FLOAT"
-    mix.inputs["Factor"].default_value = 0.35
-    ramp = nt.nodes.new("ShaderNodeValToRGB")
-    ramp.color_ramp.elements[0].position = 0.20
-    ramp.color_ramp.elements[0].color = (*c1, 1.0)
-    ramp.color_ramp.elements[1].position = 0.82
-    ramp.color_ramp.elements[1].color = (*c2, 1.0)
-    bump = nt.nodes.new("ShaderNodeBump")
-    bump.inputs["Strength"].default_value = bump_str
-    bump.inputs["Distance"].default_value = 0.15
-    nt.links.new(tc.outputs["Object"], noise.inputs["Vector"])
-    nt.links.new(tc.outputs["Object"], vor.inputs["Vector"])
-    nt.links.new(noise.outputs["Fac"], mix.inputs[2])
-    nt.links.new(vor.outputs["Distance"], mix.inputs[3])
-    nt.links.new(mix.outputs[0], ramp.inputs["Fac"])
-    nt.links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
-    nt.links.new(mix.outputs[0], bump.inputs["Height"])
-    nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    nt.nodes.clear()
+
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    emit = nt.nodes.new("ShaderNodeEmission")
+    emit.inputs["Strength"].default_value = strength
+
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    img_path = os.path.join(ASSETS_DIR, img_filename)
+    tex.image = bpy.data.images.load(img_path, check_existing=True)
+    tex.interpolation = "Cubic"
+    tex.extension = "EXTEND"
+
+    nt.links.new(tex.outputs["Color"], emit.inputs["Color"])
+    nt.links.new(emit.outputs["Emission"], out.inputs["Surface"])
     return m
 
 
-def create_3d_depth_stage(img_filename, name="DepthStage", width=16.0, height=9.0, nx=192, ny=108, depth_amp=0.85, mode="room"):
-    """
-    Build a high-density 3D Depth-Displaced Mesh from a Masterpiece Keyframe image,
-    with UV coordinates and a hybrid Emission + Principled BSDF shader so real 3D Blender
-    point lights, 3D extruded text, and 3D camera motion interact with the 3D surface!
-    """
-    img_path = os.path.join(ASSETS_DIR, img_filename)
-    b_img_full = bpy.data.images.load(img_path)
-    b_img = b_img_full.copy()
-    b_img.scale(nx, ny)
-    px = np.array(b_img.pixels[:], dtype=np.float32).reshape((ny, nx, 4))
-    # Flip vertically so row 0 is top of image (matching v_norm = 0 at top)
-    arr = px[::-1, :, :3]
-    lum = 0.299 * arr[:, :, 0] + 0.587 * arr[:, :, 1] + 0.114 * arr[:, :, 2]
-    bpy.data.images.remove(b_img)
+def make_emit_mat(name, color, strength=1.0):
+    """Pure crisp emission material for neon borders, laser beams, golden beacons & 3D text."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    emit = nt.nodes.new("ShaderNodeEmission")
+    emit.inputs["Color"].default_value = (*color, 1.0)
+    emit.inputs["Strength"].default_value = strength
+    nt.links.new(emit.outputs["Emission"], out.inputs["Surface"])
+    return m
 
+
+def make_studio_3d_mat(name, shadow_col, mid_col, high_col, rim_col=(1.0, 0.85, 0.55), fresnel_blend=0.32):
+    """
+    Deterministic noise-free 3D studio material for 3D statues, columns, pedestals & revolvers.
+    Computes 360° Hemisphere Half-Lambert shading + Fresnel rim glow in shader nodes
+    plugged directly into Surface so 3D meshes have crisp dynamic shading with 0.0% noise.
+    """
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    emit = nt.nodes.new("ShaderNodeEmission")
+    emit.inputs["Strength"].default_value = 1.0
+
+    geom = nt.nodes.new("ShaderNodeNewGeometry")
+    vdot = nt.nodes.new("ShaderNodeVectorMath")
+    vdot.operation = "DOT_PRODUCT"
+    vdot.inputs[1].default_value = (0.48, -0.52, 0.70)
+
+    mr = nt.nodes.new("ShaderNodeMapRange")
+    mr.inputs[1].default_value = -1.0
+    mr.inputs[2].default_value = 1.0
+    mr.inputs[3].default_value = 0.0
+    mr.inputs[4].default_value = 1.0
+
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].position = 0.0
+    ramp.color_ramp.elements[0].color = (*shadow_col, 1.0)
+    ramp.color_ramp.elements[1].position = 0.95
+    ramp.color_ramp.elements[1].color = (*high_col, 1.0)
+    el_mid = ramp.color_ramp.elements.new(0.52)
+    el_mid.color = (*mid_col, 1.0)
+
+    lw = nt.nodes.new("ShaderNodeLayerWeight")
+    lw.inputs["Blend"].default_value = fresnel_blend
+
+    mix_rim = nt.nodes.new("ShaderNodeMixRGB")
+    mix_rim.blend_type = "ADD"
+    mix_rim.inputs["Color2"].default_value = (*rim_col, 1.0)
+
+    nt.links.new(geom.outputs["Normal"], vdot.inputs[0])
+    nt.links.new(vdot.outputs["Value"], mr.inputs[0])
+    nt.links.new(mr.outputs[0], ramp.inputs["Fac"])
+    nt.links.new(lw.outputs["Fresnel"], mix_rim.inputs["Fac"])
+    nt.links.new(ramp.outputs["Color"], mix_rim.inputs["Color1"])
+    nt.links.new(mix_rim.outputs["Color"], emit.inputs["Color"])
+    nt.links.new(emit.outputs["Emission"], out.inputs["Surface"])
+    return m
+
+
+def make_obsidian_gis_mat(name, c_low, c_high, rim_col, scale=7.5):
+    """
+    Deterministic noise-free 3D Volcanic Obsidian GIS Terrain Material.
+    Combines Voronoi ridge lines + 360° Hemisphere Normal shading + Fresnel rim.
+    """
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    emit = nt.nodes.new("ShaderNodeEmission")
+    emit.inputs["Strength"].default_value = 1.0
+
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    vor = nt.nodes.new("ShaderNodeTexVoronoi")
+    vor.feature = "DISTANCE_TO_EDGE"
+    vor.inputs["Scale"].default_value = scale
+
+    geom = nt.nodes.new("ShaderNodeNewGeometry")
+    vdot = nt.nodes.new("ShaderNodeVectorMath")
+    vdot.operation = "DOT_PRODUCT"
+    vdot.inputs[1].default_value = (0.45, -0.50, 0.74)
+
+    mr = nt.nodes.new("ShaderNodeMapRange")
+    mr.inputs[1].default_value = -1.0
+    mr.inputs[2].default_value = 1.0
+    mr.inputs[3].default_value = 0.0
+    mr.inputs[4].default_value = 1.0
+
+    mix_val = nt.nodes.new("ShaderNodeMixRGB")
+    mix_val.blend_type = "MIX"
+    mix_val.inputs["Fac"].default_value = 0.45
+
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].position = 0.08
+    ramp.color_ramp.elements[0].color = (*c_low, 1.0)
+    ramp.color_ramp.elements[1].position = 0.85
+    ramp.color_ramp.elements[1].color = (*c_high, 1.0)
+
+    lw = nt.nodes.new("ShaderNodeLayerWeight")
+    lw.inputs["Blend"].default_value = 0.28
+
+    mix_rim = nt.nodes.new("ShaderNodeMixRGB")
+    mix_rim.blend_type = "ADD"
+    mix_rim.inputs["Color2"].default_value = (*rim_col, 1.0)
+
+    nt.links.new(tc.outputs["Object"], vor.inputs["Vector"])
+    nt.links.new(geom.outputs["Normal"], vdot.inputs[0])
+    nt.links.new(vdot.outputs["Value"], mr.inputs[0])
+    nt.links.new(vor.outputs["Distance"], mix_val.inputs["Color1"])
+    nt.links.new(mr.outputs[0], mix_val.inputs["Color2"])
+    nt.links.new(mix_val.outputs["Color"], ramp.inputs["Fac"])
+    nt.links.new(lw.outputs["Fresnel"], mix_rim.inputs["Fac"])
+    nt.links.new(ramp.outputs["Color"], mix_rim.inputs["Color1"])
+    nt.links.new(mix_rim.outputs["Color"], emit.inputs["Color"])
+    nt.links.new(emit.outputs["Emission"], out.inputs["Surface"])
+    return m
+
+
+def create_flat_uv_panel(name, width, height, mat, loc=(0, 0, 0), rot=(0, 0, 0)):
+    """Create a 100% flat, geometric distortion-free UV-mapped vertical panel in local XZ plane facing -Y."""
     mesh = bpy.data.meshes.new(name + "_Mesh")
     obj = bpy.data.objects.new(name, mesh)
     obj.rotation_mode = "XYZ"
+    obj.location = loc
+    obj.rotation_euler = rot
     bpy.context.collection.objects.link(obj)
 
     bm = bmesh.new()
     uv_layer = bm.loops.layers.uv.new("UVMap")
-
-    verts_grid = []
-    for j in range(ny):
-        v_norm = j / float(ny - 1)  # 0 at top of image, 1 at bottom
-        y_world = (0.5 - v_norm) * height
-        row_v = []
-        for i in range(nx):
-            u_norm = i / float(nx - 1)
-            x_world = (u_norm - 0.5) * width
-            l_val = float(lum[j, i])
-
-            # Compute smooth 3D structural depth Z based on scene geometry mode
-            if mode == "cutaway":
-                # Isometric diorama: center-right palace rises forward in 3D, void stays back
-                mask_palace = 1.0 if l_val > 0.04 else 0.0
-                z_world = mask_palace * (0.35 + 0.55 * l_val + 0.35 * (1.0 - abs(u_norm - 0.58))) * depth_amp
-            elif mode == "room":
-                # Vaulted cellar perspective: edges & lower floor come forward toward camera, center recedes
-                radial = ((u_norm - 0.5) * 1.6) ** 2 + ((v_norm - 0.45) * 1.3) ** 2
-                statue_boost = 0.42 * l_val if (0.20 < u_norm < 0.82 and v_norm > 0.32) else 0.0
-                z_world = (radial * 0.55 + v_norm * 0.45 + statue_boost) * depth_amp
-            elif mode == "topdown":
-                # 90° top-down crime scene: floor at Z=0, statues at corners & fallen body in center rise in +Z
-                corner_dist = min(
-                    math.hypot(u_norm - 0.15, v_norm - 0.18),
-                    math.hypot(u_norm - 0.84, v_norm - 0.18),
-                    math.hypot(u_norm - 0.15, v_norm - 0.82),
-                    math.hypot(u_norm - 0.85, v_norm - 0.82),
-                )
-                center_dist = math.hypot((u_norm - 0.50) * 1.2, (v_norm - 0.53) * 1.4)
-                statue_h = 0.55 if corner_dist < 0.16 else (0.28 * l_val if center_dist < 0.22 else 0.0)
-                z_world = (statue_h + 0.12 * l_val) * depth_amp
-            else:
-                z_world = l_val * depth_amp
-
-            v = bm.verts.new((x_world, y_world, z_world))
-            row_v.append((v, u_norm, 1.0 - v_norm))
-        verts_grid.append(row_v)
-
-    for j in range(ny - 1):
-        for i in range(nx - 1):
-            v00, u00, w00 = verts_grid[j][i]
-            v10, u10, w10 = verts_grid[j][i + 1]
-            v11, u11, w11 = verts_grid[j + 1][i + 1]
-            v01, u01, w01 = verts_grid[j + 1][i]
-            face = bm.faces.new((v00, v01, v11, v10))
-            face.smooth = True
-            uvs = [(u00, w00), (u01, w01), (u11, w11), (u10, w10)]
-            for loop, uv in zip(face.loops, uvs):
-                loop[uv_layer].uv = uv
-
+    hw = width * 0.5
+    hh = height * 0.5
+    v0 = bm.verts.new((-hw, 0.0, -hh))
+    v1 = bm.verts.new((hw, 0.0, -hh))
+    v2 = bm.verts.new((hw, 0.0, hh))
+    v3 = bm.verts.new((-hw, 0.0, hh))
+    face = bm.faces.new((v0, v1, v2, v3))
+    uvs = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+    for loop, uv in zip(face.loops, uvs):
+        loop[uv_layer].uv = uv
     bm.to_mesh(mesh)
     bm.free()
-
-    # Build Hybrid Projection Material (Preserves 100% of Masterpiece Keyframe fidelity + reacts to 3D lights)
-    mat = bpy.data.materials.new(name + "_Mat")
-    mat.use_nodes = True
-    nt = mat.node_tree
-    bsdf = nt.nodes.get("Principled BSDF")
-    bsdf.inputs["Roughness"].default_value = 0.28
-    if "Coat Weight" in bsdf.inputs:
-        bsdf.inputs["Coat Weight"].default_value = 0.35
-
-    tex = nt.nodes.new("ShaderNodeTexImage")
-    tex.image = b_img_full
-    tex.extension = "EXTEND"
-
-    nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
-    if "Emission Color" in bsdf.inputs:
-        nt.links.new(tex.outputs["Color"], bsdf.inputs["Emission Color"])
-        bsdf.inputs["Emission Strength"].default_value = 0.82
-
     mesh.materials.append(mat)
-    return obj, mat, bsdf
+    return obj
+
+
+def create_horizontal_uv_floor(name, width, height, mat, loc=(0, 0, 0)):
+    """Create a 100% flat, distortion-free UV-mapped horizontal floor in XY plane facing +Z."""
+    mesh = bpy.data.meshes.new(name + "_Mesh")
+    obj = bpy.data.objects.new(name, mesh)
+    obj.rotation_mode = "XYZ"
+    obj.location = loc
+    bpy.context.collection.objects.link(obj)
+
+    bm = bmesh.new()
+    uv_layer = bm.loops.layers.uv.new("UVMap")
+    hw = width * 0.5
+    hh = height * 0.5
+    v0 = bm.verts.new((-hw, -hh, 0.0))
+    v1 = bm.verts.new((hw, -hh, 0.0))
+    v2 = bm.verts.new((hw, hh, 0.0))
+    v3 = bm.verts.new((-hw, hh, 0.0))
+    face = bm.faces.new((v0, v1, v2, v3))
+    uvs = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+    for loop, uv in zip(face.loops, uvs):
+        loop[uv_layer].uv = uv
+    bm.to_mesh(mesh)
+    bm.free()
+    mesh.materials.append(mat)
+    return obj
 
 
 def load_blend_asset(filename, name_prefix, target_height=None, mat=None):
@@ -288,6 +350,20 @@ def load_blend_asset(filename, name_prefix, target_height=None, mat=None):
     return obj
 
 
+def clone_obj(src_obj, name, loc, rot=(0, 0, 0), scale=(1, 1, 1)):
+    if src_obj is None:
+        return None
+    c = src_obj.copy()
+    c.data = src_obj.data
+    c.name = name
+    c.rotation_mode = "XYZ"
+    c.location = loc
+    c.rotation_euler = rot
+    c.scale = scale
+    bpy.context.collection.objects.link(c)
+    return c
+
+
 def add_box(name, loc, scale, mat, rot=(0, 0, 0)):
     bpy.ops.mesh.primitive_cube_add(size=1.0, location=loc, rotation=rot)
     o = bpy.context.active_object
@@ -327,258 +403,320 @@ def add_3d_text(text, loc, size, mat, rot=(0, 0, 0), extrude=0.045):
     return t
 
 
-def add_point_light(name, loc, energy, radius=0.35, col=(1.0, 0.72, 0.35)):
-    ld = bpy.data.lights.new(name, type="POINT")
-    ld.energy = energy
-    ld.shadow_soft_size = radius
-    ld.color = col
-    lo = bpy.data.objects.new(name, ld)
-    lo.location = loc
-    bpy.context.collection.objects.link(lo)
-    return lo
-
-
-def add_spot_light(name, loc, rot_deg, energy, size=1.5, spot_deg=60.0, col=(1.0, 0.82, 0.55)):
-    ld = bpy.data.lights.new(name, type="SPOT")
-    ld.energy = energy
-    ld.shadow_soft_size = size
-    ld.spot_size = math.radians(spot_deg)
-    ld.spot_blend = 0.6
-    ld.color = col
-    lo = bpy.data.objects.new(name, ld)
-    lo.rotation_mode = "XYZ"
-    lo.location = loc
-    lo.rotation_euler = tuple(math.radians(a) for a in rot_deg)
-    bpy.context.collection.objects.link(lo)
-    return lo
-
-
-def add_camera(loc, rot_deg, lens=35.0):
+def add_camera(loc, lens=35.0):
     cd = bpy.data.cameras.new("Cam")
     cd.lens = lens
     co = bpy.data.objects.new("Cam", cd)
     co.rotation_mode = "XYZ"
     co.location = loc
-    co.rotation_euler = tuple(math.radians(a) for a in rot_deg)
     bpy.context.collection.objects.link(co)
     bpy.context.scene.camera = co
     return co
 
 
+def build_4sided_3d_pavilion(img_filename, name_prefix, w=12.8, h=7.2, title_top="YUSUPOV PALACE // 1916"):
+    """
+    Build a monumental 4-sided 3D Neoclassical Architectural Diorama Pavilion:
+    - 4 flat, distortion-free 16:9 panels (2560x1440 Cubic texture) on Front (-Y), Right (+X), Back (+Y), Left (-X)
+    - 4 real 3D Corinthian Columns (bk_column_corinthian.blend) at the corners
+    - 3D Stepped Imperial Marble Base + 3D Perspective Grid Floor
+    - 3D Golden Neoclassical Roof Cornice & Crown Pediment
+    - 3D World-Locked Extruded Titles on all 4 facades
+    """
+    mat_tex = make_crisp_tex_mat(f"{name_prefix}_TexMat", img_filename, strength=1.0)
+    mat_marble = make_studio_3d_mat(
+        f"{name_prefix}_Marble", (0.14, 0.15, 0.18), (0.62, 0.60, 0.56), (0.96, 0.94, 0.88), rim_col=(1.0, 0.85, 0.55)
+    )
+    mat_dark_stone = make_studio_3d_mat(
+        f"{name_prefix}_DarkStone", (0.03, 0.035, 0.045), (0.12, 0.13, 0.16), (0.28, 0.30, 0.36), rim_col=(0.45, 0.65, 0.95)
+    )
+    mat_gold = make_emit_mat(f"{name_prefix}_Gold", (0.98, 0.80, 0.32), strength=1.15)
+    mat_crimson = make_emit_mat(f"{name_prefix}_Crimson", (0.95, 0.14, 0.18), strength=1.25)
+    mat_grid = make_emit_mat(f"{name_prefix}_Grid", (0.28, 0.34, 0.46), strength=0.65)
+
+    hw = w * 0.5
+    hh = h * 0.5
+
+    # 4 Razor-Sharp 16:9 Facades around the 3D Pavilion
+    faces = [
+        ("Front", (0.0, -hw, 0.0), (0.0, 0.0, 0.0)),
+        ("Right", (hw, 0.0, 0.0), (0.0, 0.0, math.radians(90.0))),
+        ("Back", (0.0, hw, 0.0), (0.0, 0.0, math.radians(180.0))),
+        ("Left", (-hw, 0.0, 0.0), (0.0, 0.0, math.radians(270.0))),
+    ]
+    for fname, floc, frot in faces:
+        create_flat_uv_panel(f"{name_prefix}_{fname}", w, h, mat_tex, loc=floc, rot=frot)
+
+    # Solid 3D Core Block inside the 4 facades + 3D Stepped Base + 3D Roof Cornice
+    add_box(f"{name_prefix}_Core", (0.0, 0.0, 0.0), (w - 0.08, w - 0.08, h - 0.08), mat_dark_stone)
+    add_box(f"{name_prefix}_BaseStep1", (0.0, 0.0, -hh - 0.25), (w + 1.4, w + 1.4, 0.50), mat_dark_stone)
+    add_box(f"{name_prefix}_BaseStep2", (0.0, 0.0, -hh - 0.65), (w + 2.8, w + 2.8, 0.35), mat_marble)
+    add_box(f"{name_prefix}_BaseRimGold", (0.0, 0.0, -hh - 0.02), (w + 0.45, w + 0.45, 0.08), mat_gold)
+
+    add_box(f"{name_prefix}_RoofCornice", (0.0, 0.0, hh + 0.22), (w + 1.1, w + 1.1, 0.44), mat_marble)
+    add_box(f"{name_prefix}_RoofGoldRim", (0.0, 0.0, hh + 0.02), (w + 0.45, w + 0.45, 0.08), mat_gold)
+    add_box(f"{name_prefix}_RoofCrimsonRim", (0.0, 0.0, hh + 0.46), (w + 0.65, w + 0.65, 0.06), mat_crimson)
+
+    # 3D Perspective Wireframe Floor Grid under the Diorama Island
+    grid_z = -hh - 0.84
+    for g in range(-16, 17, 2):
+        add_box(f"{name_prefix}_GX_{g}", (g * 1.2, 0.0, grid_z), (0.02, 36.0, 0.01), mat_grid)
+        add_box(f"{name_prefix}_GY_{g}", (0.0, g * 1.2, grid_z), (36.0, 0.02, 0.01), mat_grid)
+
+    # 4 Real 3D Corinthian Columns at the 4 Corners of the Pavilion
+    col_proto = load_blend_asset("bk_column_corinthian.blend", f"{name_prefix}_ColProto", target_height=h + 0.5, mat=mat_marble)
+    if col_proto:
+        corners = [
+            (-hw - 0.22, -hw - 0.22),
+            (hw + 0.22, -hw - 0.22),
+            (hw + 0.22, hw + 0.22),
+            (-hw - 0.22, hw + 0.22),
+        ]
+        for idx_c, (cx, cy) in enumerate(corners):
+            if idx_c == 0:
+                col_proto.location = (cx, cy, -hh - 0.25)
+            else:
+                clone_obj(col_proto, f"{name_prefix}_Col_{idx_c}", (cx, cy, -hh - 0.25))
+
+    # 3D Extruded World-Locked Title Headers on all 4 Sides of the Crown Cornice
+    title_rots = [
+        ((0.0, -hw - 0.62, hh + 0.22), (math.radians(90.0), 0.0, 0.0)),
+        ((hw + 0.62, 0.0, hh + 0.22), (math.radians(90.0), 0.0, math.radians(90.0))),
+        ((0.0, hw + 0.62, hh + 0.22), (math.radians(90.0), 0.0, math.radians(180.0))),
+        ((-hw - 0.62, 0.0, hh + 0.22), (math.radians(90.0), 0.0, math.radians(270.0))),
+    ]
+    for tloc, trot in title_rots:
+        add_3d_text(title_top, tloc, 0.42, mat_gold, rot=trot, extrude=0.04)
+
+    return mat_marble, mat_gold, mat_crimson
+
+
 # ==============================================================================
-# SCENE 0 (Frames 0..299): 3D DEPTH-PROJECTED CUTAWAY OF YUSUPOV PALACE + 3D TEXT
+# SCENE 0 (Frames 0..299): FULL 360° ORBIT AROUND YUSUPOV PALACE 3D CUTAWAY
 # ==============================================================================
 def build_scene_0():
-    scene = configure_cycles(samples_override=4)
-    setup_world((0.002, 0.003, 0.005), 1.0)
+    scene = configure_sharp_1080p()
+    setup_world((0.003, 0.004, 0.008))
 
-    stage, _, bsdf = create_3d_depth_stage(
-        "rasputin_kf_1_cutaway.jpg", "YusupovCutaway3D", width=16.0, height=9.0, nx=192, ny=108, depth_amp=0.75, mode="cutaway"
+    mat_marble, mat_gold, mat_crimson = build_4sided_3d_pavilion(
+        "rasputin_kf_1_cutaway.jpg", "YusupovCutaway", w=12.8, h=7.2, title_top="YUSUPOV PALACE // 94 MOIKA CANAL"
     )
 
-    mat_text_white = make_pbr_mat("TextWhite", (0.98, 0.96, 0.92), rough=0.15, emit_col=(0.98, 0.96, 0.92), emit_str=2.2)
-    mat_text_gold = make_pbr_mat("TextGold", (1.0, 0.82, 0.35), rough=0.15, emit_col=(1.0, 0.82, 0.35), emit_str=2.6)
-    mat_step_on = make_pbr_mat("StepRedOn", (1.0, 0.12, 0.15), rough=0.1, emit_col=(1.0, 0.14, 0.18), emit_str=6.5)
-    mat_step_off = make_pbr_mat("StepRedOff", (0.18, 0.02, 0.03), rough=0.5, emit_col=(0.18, 0.02, 0.03), emit_str=0.05)
+    # 3D Glowing Crimson Footsteps descending around the 3D Palace Plinth Perimeter
+    for i in range(32):
+        ang = (i / 32.0) * 2.0 * math.pi
+        rx = 7.65 * math.sin(ang)
+        ry = -7.65 * math.cos(ang)
+        rz = -3.65 - 0.15 * math.sin(ang * 2.0)
+        add_cyl(f"Step3D_{i}", (rx, ry, rz), 0.15, 0.06, mat_crimson, verts=20)
 
-    # 3D World-Locked Extruded Typography Floating over the Cutaway Zones
-    add_3d_text("MOIKA CANAL", (-3.8, -1.75, 0.65), 0.38, mat_text_white, rot=(0, 0, math.radians(-26.5)), extrude=0.035)
-    add_3d_text("YUSUPOV PALACE", (-0.55, 2.55, 0.72), 0.40, mat_text_white, rot=(0, 0, math.radians(-14.0)), extrude=0.035)
-    add_3d_text("GRAND DRAWING ROOM", (4.25, 2.25, 0.82), 0.32, mat_text_gold, rot=(0, 0, 0), extrude=0.03)
-    add_3d_text("SOUNDPROOFED BASEMENT", (4.35, -3.55, 0.75), 0.33, mat_text_gold, rot=(0, 0, 0), extrude=0.03)
-
-    # Animated 3D Glowing Crimson Footsteps descending the Spiral Staircase into the Basement
-    stair_pts = [
-        (3.65, 0.62, 0.75), (3.42, 0.45, 0.75), (3.20, 0.26, 0.74), (3.02, 0.05, 0.73),
-        (3.15, -0.18, 0.72), (3.38, -0.36, 0.72), (3.62, -0.52, 0.72), (3.45, -0.78, 0.71),
-        (3.22, -1.05, 0.70), (3.12, -1.35, 0.69), (3.32, -1.65, 0.68), (3.65, -1.88, 0.68),
-    ]
-    step_objs = []
-    for idx_s, pt in enumerate(stair_pts):
-        so = add_cyl(f"StairStepDot_{idx_s}", pt, 0.075, 0.04, mat_step_on, verts=20)
-        step_objs.append(so)
-
-    # 3D Point Lights over the Cutaway Chandelier, Basement Candelabra & Embankment Streetlamps
-    l_draw = add_point_light("Chandelier3D", (4.05, 1.35, 1.45), 55.0, radius=0.4, col=(1.0, 0.78, 0.42))
-    l_base = add_point_light("Basement3D", (4.45, -1.85, 1.35), 65.0, radius=0.35, col=(1.0, 0.68, 0.28))
-    l_moon = add_point_light("CanalMoon3D", (-3.5, -1.0, 3.2), 45.0, radius=1.2, col=(0.45, 0.72, 1.0))
-
-    cam = add_camera(loc=(0.0, 0.0, 11.4), rot_deg=(0.0, 0.0, 0.0), lens=35.0)
+    cam = add_camera(loc=(0.0, -21.8, 2.3), lens=36.0)
 
     def update_frame(f):
-        u = smoothstep((f - 0.0) / 299.0)
-        # Smooth 3D orbital crane push-in toward the right-side cutaway staircase & basement
-        cam.location = (
-            lerp(-0.35, 0.68, u),
-            lerp(0.18, -0.32, u),
-            lerp(11.55, 9.75, u),
-        )
-        cam.rotation_euler = (
-            math.radians(lerp(-1.2, 1.8, u)),
-            math.radians(lerp(-2.2, 3.2, u)),
-            math.radians(lerp(0.8, -0.8, u)),
-        )
-        l_base.data.energy = 65.0 + 18.0 * math.sin(f * 0.42)
-        l_draw.data.energy = 55.0 + 10.0 * math.cos(f * 0.28)
-        active = int(lerp(1, len(step_objs) + 1, clamp((f - 12.0) / 210.0)))
-        for idx_s, so in enumerate(step_objs):
-            so.data.materials[0] = mat_step_on if idx_s <= active else mat_step_off
+        # Full 360-degree (0 -> 2*pi) continuous 3D orbit over 300 frames
+        u = (f - 0.0) / 300.0
+        theta = u * 2.0 * math.pi
+        radius = 21.8 + 1.6 * (math.sin(2.0 * theta) ** 2)
+        cam_z = 2.25 + 0.55 * math.sin(theta * 2.0)
+        cam.location = (radius * math.sin(theta), -radius * math.cos(theta), cam_z)
+        look_at(cam, (0.0, 0.0, -0.10))
 
     return scene, update_frame
 
 
 # ==============================================================================
-# SCENE 1 (Frames 300..599): 3D DEPTH-PROJECTED BASEMENT TABLEAU + CANDLE FLICKER
+# SCENE 1 (Frames 300..599): FULL 360° ORBIT AROUND SOUNDPROOFED BASEMENT CHAMBER
 # ==============================================================================
 def build_scene_1():
-    scene = configure_cycles(samples_override=4)
-    setup_world((0.003, 0.002, 0.005), 1.0)
+    scene = configure_sharp_1080p()
+    setup_world((0.004, 0.003, 0.007))
 
-    stage, _, _ = create_3d_depth_stage(
-        "rasputin_kf_2_basement.jpg", "BasementTableau3D", width=16.0, height=9.0, nx=192, ny=108, depth_amp=1.05, mode="room"
+    mat_marble, mat_gold, mat_crimson = build_4sided_3d_pavilion(
+        "rasputin_kf_2_basement.jpg", "BasementChamber", w=12.8, h=7.2, title_top="SOUNDPROOFED CELLAR // DEC 30, 1916"
     )
 
-    # Real 3D flickering candle light right over the candelabra on the mahogany table + cold moonlight on the upper stairs
-    candle_3d = add_point_light("CandelabraLight3D", (0.0, 0.15, 1.55), 85.0, radius=0.35, col=(1.0, 0.68, 0.25))
-    stair_moon = add_point_light("StairMoonLight3D", (0.0, 1.65, 1.85), 40.0, radius=0.8, col=(0.42, 0.68, 1.0))
+    # Real 3D Carrara Marble Statues of Rasputin & Conspirators + 3D Golden Candelabra on the 4 Plinth Terraces
+    ras_proto = load_blend_asset("bk_bearded_statue.blend", "RasputinStatue3D", target_height=2.35, mat=mat_marble)
+    cand_proto = load_blend_asset("bk_candelabra.blend", "Candelabra3D", target_height=1.15, mat=mat_gold)
 
-    # Subtle 3D floating golden dust motes in the cellar candlelight
-    mat_mote = make_pbr_mat("CandleMote", (1.0, 0.82, 0.42), rough=0.1, emit_col=(1.0, 0.78, 0.35), emit_str=3.5)
-    random.seed(1916)
-    motes = []
-    for m_i in range(28):
-        mx = random.uniform(-4.5, 4.5)
-        my = random.uniform(-2.5, 2.5)
-        mz = random.uniform(0.65, 2.2)
-        mo = add_cyl(f"Mote_{m_i}", (mx, my, mz), 0.018, 0.018, mat_mote, verts=8)
-        motes.append((mo, mx, my, mz, random.uniform(0.0, 6.28)))
+    terrace_locs = [
+        ((0.0, -7.25, -3.85), 0.0),
+        ((7.25, 0.0, -3.85), 90.0),
+        ((0.0, 7.25, -3.85), 180.0),
+        ((-7.25, 0.0, -3.85), 270.0),
+    ]
+    for idx_t, ((tx, ty, tz), rot_d) in enumerate(terrace_locs):
+        rad = math.radians(rot_d)
+        if cand_proto:
+            if idx_t == 0:
+                cand_proto.location = (tx, ty, tz)
+                cand_proto.rotation_euler = (0.0, 0.0, rad)
+            else:
+                clone_obj(cand_proto, f"Cand_{idx_t}", (tx, ty, tz), rot=(0.0, 0.0, rad))
+        if ras_proto:
+            sx = tx + 2.8 * math.cos(rad)
+            sy = ty + 2.8 * math.sin(rad)
+            if idx_t == 0:
+                ras_proto.location = (sx, sy, tz)
+                ras_proto.rotation_euler = (0.0, 0.0, rad)
+            else:
+                clone_obj(ras_proto, f"RasStatue_{idx_t}", (sx, sy, tz), rot=(0.0, 0.0, rad))
 
-    cam = add_camera(loc=(0.0, 0.0, 11.4), rot_deg=(0.0, 0.0, 0.0), lens=35.0)
+    cam = add_camera(loc=(0.0, -21.8, 2.0), lens=36.0)
 
     def update_frame(f):
-        u = smoothstep((f - 300.0) / 299.0)
-        # Slow, tense 3D camera dolly-in + subtle pan between Rasputin and Prince Yusupov
-        cam.location = (
-            lerp(-0.22, 0.18, u),
-            lerp(-0.12, 0.08, u),
-            lerp(11.45, 9.65, u),
-        )
-        cam.rotation_euler = (
-            math.radians(lerp(0.8, -0.6, u)),
-            math.radians(lerp(-1.8, 1.6, u)),
-            0.0,
-        )
-        candle_3d.data.energy = 85.0 + 24.0 * math.sin(f * 0.55) + 12.0 * math.cos(f * 0.9)
-        for mo, mx, my, mz, ph in motes:
-            mo.location = (
-                mx + 0.12 * math.sin(f * 0.03 + ph),
-                my + 0.08 * (f - 300.0) * 0.01,
-                mz + 0.08 * math.cos(f * 0.04 + ph),
-            )
+        # Full 360-degree (0 -> 2*pi) continuous 3D orbit over 300 frames
+        u = (f - 300.0) / 300.0
+        theta = u * 2.0 * math.pi
+        radius = 21.8 + 1.6 * (math.sin(2.0 * theta) ** 2)
+        cam_z = 2.05 + 0.45 * math.cos(theta * 2.0)
+        cam.location = (radius * math.sin(theta), -radius * math.cos(theta), cam_z)
+        look_at(cam, (0.0, 0.0, -0.15))
 
     return scene, update_frame
 
 
 # ==============================================================================
-# SCENE 2 (Frames 600..899): 3D SLICED MARBLE BUST + ANIMATED 3D LASER SEPARATION
+# SCENE 2 (Frames 600..899): FULL 360° TURNTABLE OF BISECTED 3D MARBLE BUST
 # ==============================================================================
 def build_scene_2():
-    scene = configure_cycles(samples_override=4)
-    setup_world((0.005, 0.001, 0.002), 1.0)
+    scene = configure_sharp_1080p()
+    setup_world((0.006, 0.002, 0.003))
 
-    # Create two 3D depth-projected meshes split along the 38° laser line so the upper-right bust half physically separates in 3D!
-    stage_low, _, _ = create_3d_depth_stage(
-        "rasputin_kf_3_sliced_bust.jpg", "BustLowerLeft3D", width=16.0, height=9.0, nx=160, ny=90, depth_amp=0.65, mode="cutaway"
+    # Build a Parent Turntable Empty at X = +2.35m (so the left side has clean room for the Bento Dossier Card)
+    pivot_low = bpy.data.objects.new("BustTurntableLow", None)
+    pivot_low.location = (2.35, 0.0, -0.55)
+    pivot_low.rotation_mode = "XYZ"
+    bpy.context.collection.objects.link(pivot_low)
+
+    pivot_high = bpy.data.objects.new("BustTurntableHigh", None)
+    pivot_high.location = (2.35, 0.0, -0.55)
+    pivot_high.rotation_mode = "XYZ"
+    bpy.context.collection.objects.link(pivot_high)
+
+    mat_tex = make_crisp_tex_mat("SlicedBustTex", "rasputin_kf_3_sliced_bust.jpg", strength=1.0)
+    mat_marble = make_studio_3d_mat(
+        "BustMarble3D", (0.16, 0.16, 0.19), (0.68, 0.66, 0.62), (0.98, 0.96, 0.92), rim_col=(1.0, 0.25, 0.28)
     )
-    stage_high = stage_low.copy()
-    stage_high.data = stage_low.data.copy()
-    stage_high.rotation_mode = "XYZ"
-    bpy.context.collection.objects.link(stage_high)
+    mat_laser = make_emit_mat("LaserCut3D", (1.0, 0.08, 0.12), strength=2.2)
+    mat_gold = make_emit_mat("BustGold3D", (0.98, 0.80, 0.32), strength=1.2)
+    mat_grid = make_emit_mat("BustGrid3D", (0.35, 0.15, 0.18), strength=0.6)
 
-    # Bisect stage_low and stage_high along the diagonal laser line: y - 0.62*x = 0.15
-    plane_co = mathutils.Vector((0.35, 0.18, 0.0))
-    plane_no = mathutils.Vector((0.52, 0.85, 0.0)).normalized()
+    w, h = 9.6, 5.4
+    hw, hh = w * 0.5, h * 0.5
 
-    bm1 = bmesh.new()
-    bm1.from_mesh(stage_low.data)
-    bmesh.ops.bisect_plane(
-        bm1, geom=bm1.verts[:] + bm1.edges[:] + bm1.faces[:], plane_co=plane_co, plane_no=plane_no, clear_outer=True, clear_inner=False
-    )
-    bm1.to_mesh(stage_low.data)
-    bm1.free()
+    # 4 Razor-Sharp 16:9 Facades on the Rotating 3D Bust Monument
+    faces = [
+        ("Front", (0.0, -hw, 0.0), (0.0, 0.0, 0.0)),
+        ("Right", (hw, 0.0, 0.0), (0.0, 0.0, math.radians(90.0))),
+        ("Back", (0.0, hw, 0.0), (0.0, 0.0, math.radians(180.0))),
+        ("Left", (-hw, 0.0, 0.0), (0.0, 0.0, math.radians(270.0))),
+    ]
+    for fname, floc, frot in faces:
+        p_obj = create_flat_uv_panel(f"BustPanel_{fname}", w, h, mat_tex, loc=floc, rot=frot)
+        p_obj.parent = pivot_low
 
-    bm2 = bmesh.new()
-    bm2.from_mesh(stage_high.data)
-    bmesh.ops.bisect_plane(
-        bm2, geom=bm2.verts[:] + bm2.edges[:] + bm2.faces[:], plane_co=plane_co, plane_no=plane_no, clear_outer=False, clear_inner=True
-    )
-    bm2.to_mesh(stage_high.data)
-    bm2.free()
+    core = add_box("BustMonumentCore", (0.0, 0.0, 0.0), (w - 0.08, w - 0.08, h - 0.08), mat_marble)
+    core.parent = pivot_low
+    base1 = add_box("BustBase1", (0.0, 0.0, -hh - 0.22), (w + 1.0, w + 1.0, 0.44), mat_marble)
+    base1.parent = pivot_low
+    rim1 = add_box("BustRimGold", (0.0, 0.0, -hh - 0.02), (w + 0.3, w + 0.3, 0.07), mat_gold)
+    rim1.parent = pivot_low
+    top_cornice = add_box("BustTopCornice", (0.0, 0.0, hh + 0.15), (w + 0.6, w + 0.6, 0.30), mat_marble)
+    top_cornice.parent = pivot_low
 
-    # Real 3D Glowing Crimson Laser Beam sweeping across the cut
-    mat_laser = make_pbr_mat("Laser3D", (1.0, 0.08, 0.12), rough=0.05, emit_col=(1.0, 0.10, 0.14), emit_str=14.0)
-    laser_3d = add_box("LaserBeam3D", (0.35, 0.18, 0.58), (18.5, 0.045, 0.045), mat_laser, rot=(0, 0, math.radians(31.5)))
-    laser_light = add_point_light("LaserCoreLight", (0.85, 0.45, 1.4), 95.0, radius=0.45, col=(1.0, 0.08, 0.12))
+    # Real 3D High-Poly Marble Bust of Rasputin (bk_rasputin_bust.blend) crowning the 3D Turntable Monument
+    bust_low = load_blend_asset("bk_rasputin_bust.blend", "RealBust3D_Low", target_height=2.35, mat=mat_marble)
+    if bust_low:
+        bust_high = clone_obj(bust_low, "RealBust3D_High", (0.0, 0.0, hh + 0.28))
+        bust_high.data = bust_low.data.copy()
+        bust_low.location = (0.0, 0.0, hh + 0.28)
 
-    # Shift the bust group slightly right (+1.15m) so the Left Bento Noir Dossier Card has clean framing
-    cam = add_camera(loc=(-1.05, 0.0, 11.2), rot_deg=(0.0, 0.0, 0.0), lens=35.0)
+        # Bisect the real 3D bust mesh at 38° so the upper half physically separates along the glowing red laser plane
+        plane_co = mathutils.Vector((0.0, 0.0, 1.20))
+        plane_no = mathutils.Vector((0.55, 0.0, 0.83)).normalized()
+
+        bm1 = bmesh.new()
+        bm1.from_mesh(bust_low.data)
+        bmesh.ops.bisect_plane(
+            bm1, geom=bm1.verts[:] + bm1.edges[:] + bm1.faces[:], plane_co=plane_co, plane_no=plane_no, clear_outer=True, clear_inner=False
+        )
+        bm1.to_mesh(bust_low.data)
+        bm1.free()
+
+        bm2 = bmesh.new()
+        bm2.from_mesh(bust_high.data)
+        bmesh.ops.bisect_plane(
+            bm2, geom=bm2.verts[:] + bm2.edges[:] + bm2.faces[:], plane_co=plane_co, plane_no=plane_no, clear_outer=False, clear_inner=True
+        )
+        bm2.to_mesh(bust_high.data)
+        bm2.free()
+
+        bust_low.parent = pivot_low
+        bust_high.parent = pivot_high
+
+    # 3D Glowing Crimson Laser Sheet slicing through the rotating monument
+    laser_ring = add_box("LaserSlice3D", (0.0, 0.0, 0.15), (w + 1.8, w + 1.8, 0.06), mat_laser, rot=(0.0, math.radians(-28.0), 0.0))
+    laser_ring.parent = pivot_low
+
+    for g in range(-14, 15, 2):
+        add_box(f"BustGX_{g}", (g * 1.2, 0.0, -3.75), (0.02, 30.0, 0.01), mat_grid)
+        add_box(f"BustGY_{g}", (0.0, g * 1.2, -3.75), (30.0, 0.02, 0.01), mat_grid)
+
+    cam = add_camera(loc=(0.0, -21.2, 2.15), lens=36.0)
+    look_at(cam, (0.0, 0.0, 0.25))
 
     def update_frame(f):
-        u = smoothstep((f - 600.0) / 299.0)
-        split_t = smoothstep((f - 615.0) / 160.0)
-        # Physically separate the upper-right 3D bust half along the 38° laser trajectory!
-        stage_high.location = (
-            lerp(-0.08, 0.22, split_t),
-            lerp(-0.05, 0.16, split_t),
-            lerp(0.0, 0.28, split_t),
-        )
-        laser_3d.scale = (lerp(0.05, 1.05, smoothstep((f - 605.0) / 45.0)), 1.0, 1.0 + 0.35 * math.sin(f * 0.4))
-        laser_light.data.energy = 95.0 + 35.0 * math.sin(f * 0.35)
-        cam.location = (
-            lerp(-1.15, -0.75, u),
-            lerp(-0.10, 0.12, u),
-            lerp(11.35, 9.85, u),
-        )
-        cam.rotation_euler = (0.0, math.radians(lerp(-1.5, 2.2, u)), 0.0)
+        # Full 360-degree (0 -> 2*pi) turntable rotation of the 3D Bust Monument + 3D separation of the sliced bust
+        u = (f - 600.0) / 300.0
+        theta = u * 2.0 * math.pi
+        split_t = smoothstep((f - 615.0) / 120.0)
+        pivot_low.rotation_euler = (0.0, 0.0, theta)
+        pivot_high.rotation_euler = (0.0, 0.0, theta)
+        pivot_high.location = (2.35 + 0.28 * split_t, 0.0, -0.55 + 0.42 * split_t)
 
     return scene, update_frame
 
 
 # ==============================================================================
-# SCENE 3 (Frames 900..1199): 100% REAL GIS GEOGRAPHY IN BLENDER 4.3 CYCLES
+# SCENE 3 (Frames 900..1199): FULL 360° ORBIT AROUND REAL GIS 3D RELIEF MAP
 # ==============================================================================
 def build_scene_3():
     """
     100% Real GIS Geographic Relief Map of Imperial Russia, Baltic Sea, Gulf of Finland
-    and the 1916 Eastern Front built from Natural Earth 50m GeoJSON inside Blender 4.3 Cycles.
+    and the 1916 Eastern Front built from Natural Earth 50m GeoJSON inside Blender 4.3,
+    with a full 360° 3D camera orbit and zero blur.
     """
-    scene = configure_cycles(samples_override=4)
-    setup_world((0.002, 0.003, 0.007), 1.0)
+    scene = configure_sharp_1080p()
+    setup_world((0.002, 0.004, 0.009))
 
-    mat_grid = make_pbr_mat("GridWire", (0.55, 0.65, 0.82), rough=0.2, emit_col=(0.55, 0.65, 0.82), emit_str=0.65)
-    mat_ocean = make_pbr_mat("DarkBalticOcean", (0.008, 0.012, 0.022), rough=0.14, coat=0.8)
-    mat_obsidian_russia = make_obsidian_terrain_mat(
-        "ObsidianRussia", (0.035, 0.042, 0.065), (0.012, 0.016, 0.028), rough=0.24, coat=0.5, scale=8.5, bump_str=0.65
+    mat_grid = make_emit_mat("GISGridWire", (0.52, 0.64, 0.85), strength=0.75)
+    mat_ocean = make_studio_3d_mat(
+        "DarkBalticOcean", (0.006, 0.010, 0.020), (0.014, 0.022, 0.042), (0.04, 0.07, 0.12), rim_col=(0.12, 0.28, 0.55)
     )
-    mat_obsidian_front = make_obsidian_terrain_mat(
-        "ObsidianFront", (0.12, 0.025, 0.030), (0.035, 0.010, 0.012), rough=0.26, coat=0.45, scale=8.5, bump_str=0.68
+    mat_obsidian_russia = make_obsidian_gis_mat(
+        "ObsidianRussia", (0.022, 0.032, 0.055), (0.085, 0.115, 0.185), rim_col=(0.18, 0.52, 1.0), scale=7.5
     )
-    mat_obsidian_neutral = make_obsidian_terrain_mat(
-        "ObsidianNeutral", (0.028, 0.032, 0.042), (0.010, 0.012, 0.018), rough=0.32, coat=0.3, scale=8.0, bump_str=0.50
+    mat_obsidian_front = make_obsidian_gis_mat(
+        "ObsidianFront", (0.055, 0.014, 0.018), (0.22, 0.045, 0.055), rim_col=(1.0, 0.18, 0.22), scale=7.5
     )
-    mat_blue_neon = make_pbr_mat("RussiaBlueNeon", (0.12, 0.45, 1.0), rough=0.1, emit_col=(0.15, 0.52, 1.0), emit_str=6.5)
-    mat_red_neon = make_pbr_mat("FrontCrimsonNeon", (1.0, 0.10, 0.14), rough=0.1, emit_col=(1.0, 0.12, 0.16), emit_str=8.5)
-    mat_gold_beacon = make_pbr_mat("PetrogradGoldBeacon", (1.0, 0.84, 0.28), rough=0.05, emit_col=(1.0, 0.82, 0.25), emit_str=18.0)
+    mat_obsidian_neutral = make_obsidian_gis_mat(
+        "ObsidianNeutral", (0.018, 0.022, 0.032), (0.055, 0.065, 0.085), rim_col=(0.25, 0.30, 0.40), scale=7.0
+    )
+    mat_blue_neon = make_emit_mat("RussiaBlueNeon", (0.18, 0.58, 1.0), strength=1.45)
+    mat_red_neon = make_emit_mat("FrontCrimsonNeon", (1.0, 0.14, 0.18), strength=1.65)
+    mat_gold_beacon = make_emit_mat("PetrogradGoldBeacon", (1.0, 0.84, 0.28), strength=1.85)
+    mat_white_text = make_emit_mat("MapTextWhite", (0.98, 0.96, 0.92), strength=1.35)
 
     # 1. Dark Ocean Floor + Crisp 3D White Perspective Wireframe Grid
-    add_box("OceanFloor", (0.0, 0.0, -0.04), (24.0, 18.0, 0.04), mat_ocean)
+    add_box("OceanFloor", (0.0, 0.0, -0.05), (24.0, 24.0, 0.05), mat_ocean)
     for gx in range(-16, 17, 1):
-        add_box(f"GridX_{gx}", (gx * 0.65, 0.0, 0.0), (0.012, 16.0, 0.006), mat_grid)
-    for gy in range(-12, 13, 1):
-        add_box(f"GridY_{gy}", (0.0, gy * 0.65, 0.0), (21.0, 0.012, 0.006), mat_grid)
+        add_box(f"GridX_{gx}", (gx * 0.68, 0.0, 0.0), (0.014, 22.0, 0.008), mat_grid)
+    for gy in range(-16, 17, 1):
+        add_box(f"GridY_{gy}", (0.0, gy * 0.68, 0.0), (22.0, 0.014, 0.008), mat_grid)
 
     def proj(lon, lat):
-        x = (lon - 27.0) * 0.36 + 0.95
+        x = (lon - 27.0) * 0.36 + 0.65
         y = (lat - 54.2) * 0.48
         return x, y
 
@@ -602,31 +740,31 @@ def build_scene_3():
                 cmat = mat_obsidian_russia
                 rmat = mat_blue_neon
                 z_off = 0.06
-                ext = 0.14
+                ext = 0.16
             elif cname in eastern_front:
                 cmat = mat_obsidian_front
                 rmat = mat_red_neon
                 z_off = 0.09
-                ext = 0.16
+                ext = 0.18
             else:
                 cmat = mat_obsidian_neutral
                 rmat = None
                 z_off = 0.04
-                ext = 0.10
+                ext = 0.11
 
             curve_data = bpy.data.curves.new(f"GIS_{cname}", type="CURVE")
             curve_data.dimensions = "2D"
             curve_data.fill_mode = "BOTH"
             curve_data.extrude = ext
-            curve_data.bevel_depth = 0.012
-            curve_data.resolution_u = 3
+            curve_data.bevel_depth = 0.014
+            curve_data.resolution_u = 4
 
             rim_data = bpy.data.curves.new(f"NeonRim_{cname}", type="CURVE") if rmat else None
             if rim_data:
                 rim_data.dimensions = "2D"
                 rim_data.fill_mode = "NONE"
-                rim_data.bevel_depth = 0.028
-                rim_data.resolution_u = 3
+                rim_data.bevel_depth = 0.032
+                rim_data.resolution_u = 4
 
             has_pts = False
             for poly in polys:
@@ -665,115 +803,139 @@ def build_scene_3():
                 if rim_data:
                     robj = bpy.data.objects.new(f"GISRim_{cname}", rim_data)
                     robj.rotation_mode = "XYZ"
-                    robj.location = (0.0, 0.0, z_off + ext + 0.016)
+                    robj.location = (0.0, 0.0, z_off + ext + 0.018)
                     robj.data.materials.append(rmat)
                     bpy.context.collection.objects.link(robj)
 
-    # 3. Sculpted 3D Mountain Ridges (Carpathian Arc, Western Front Trenches, Urals/Valdai Hills)
+    # 3. Sculpted 3D Mountain Ridges (Carpathian Arc, Polish Front, Valdai Hills)
     random.seed(1916)
     mountain_clusters = [
-        # Carpathians & Galicia Front
-        (-1.4, -2.1, 0.55), (-1.1, -2.3, 0.62), (-0.7, -2.4, 0.52), (-0.3, -2.2, 0.48),
-        # East Prussia / Masurian Lakes / Polish Front
-        (-1.6, -0.4, 0.42), (-1.3, 0.1, 0.45), (-0.9, 0.5, 0.38),
-        # Valdai Hills / Central Russian Upland
-        (1.6, 0.8, 0.36), (2.2, 1.2, 0.40), (2.8, 0.4, 0.35), (3.4, -0.4, 0.38),
+        (-1.6, -2.1, 0.58), (-1.3, -2.3, 0.65), (-0.9, -2.4, 0.54), (-0.5, -2.2, 0.50),
+        (-1.8, -0.4, 0.45), (-1.5, 0.1, 0.48), (-1.1, 0.5, 0.40),
+        (1.4, 0.8, 0.38), (2.0, 1.2, 0.42), (2.6, 0.4, 0.38), (3.2, -0.4, 0.40),
     ]
     for idx_m, (mx, my, mh) in enumerate(mountain_clusters):
         for sub in range(4):
             ox = mx + random.uniform(-0.35, 0.35)
             oy = my + random.uniform(-0.35, 0.35)
-            oh = mh * random.uniform(0.65, 1.15)
+            oh = mh * random.uniform(0.7, 1.2)
             bpy.ops.mesh.primitive_cone_add(
-                vertices=7, radius1=random.uniform(0.38, 0.65), radius2=0.03, depth=oh, location=(ox, oy, 0.22 + oh * 0.5)
+                vertices=7, radius1=random.uniform(0.38, 0.65), radius2=0.03, depth=oh, location=(ox, oy, 0.24 + oh * 0.5)
             )
             mc = bpy.context.active_object
             mc.rotation_mode = "XYZ"
             mc.rotation_euler = (0, 0, random.uniform(0, 6.28))
-            mc.data.materials.append(mat_obsidian_front if ox < 0.0 else mat_obsidian_russia)
+            mc.data.materials.append(mat_obsidian_front if ox < -0.2 else mat_obsidian_russia)
 
     # 4. Towering Golden Laser Beacon at Real Coordinates of Petrograd (59.93°N, 30.33°E)
     px, py = proj(30.33, 59.93)
-    pin_ring = add_cyl("PetrogradRing", (px, py, 0.24), 0.36, 0.04, mat_gold_beacon, verts=48)
-    pin_beam = add_cyl("PetrogradLaserSpire", (px, py, 1.85), 0.048, 3.30, mat_gold_beacon, verts=24)
+    pin_ring = add_cyl("PetrogradRing", (px, py, 0.26), 0.42, 0.05, mat_gold_beacon, verts=48)
+    pin_ring2 = add_cyl("PetrogradRingOuter", (px, py, 0.25), 0.68, 0.03, mat_red_neon, verts=48)
+    add_cyl("PetrogradLaserSpire", (px, py, 1.95), 0.055, 3.50, mat_gold_beacon, verts=24)
+
+    # 3D World-Locked Map Labels directly on the 3D GIS Terrain
+    add_3d_text("PETROGRAD", (px, py + 0.65, 0.38), 0.36, mat_gold_beacon, rot=(0, 0, 0), extrude=0.04)
+    add_3d_text("RUSSIAN EMPIRE", (2.8, 0.2, 0.34), 0.44, mat_white_text, rot=(0, 0, 0), extrude=0.04)
+    add_3d_text("1916 EASTERN FRONT", (-1.6, -1.2, 0.38), 0.38, mat_red_neon, rot=(0, 0, math.radians(-55.0)), extrude=0.04)
 
     # Converging Crimson Plot Trajectory Arrows toward Petrograd
-    for sx, sy, rot_z in [(-1.1, 0.3, -32), (-0.3, -1.4, -15), (2.5, -0.6, 22)]:
+    for sx, sy, rot_z in [(-1.3, 0.3, -32), (-0.5, -1.4, -15), (2.3, -0.6, 22)]:
         add_box(
             f"PlotArrow_{sx}",
-            ((sx + px) * 0.5, (sy + py) * 0.5, 0.25),
-            (0.06, math.hypot(px - sx, py - sy) * 0.78, 0.03),
+            ((sx + px) * 0.5, (sy + py) * 0.5, 0.27),
+            (0.065, math.hypot(px - sx, py - sy) * 0.78, 0.035),
             mat_red_neon,
             rot=(0, 0, math.radians(rot_z)),
         )
 
-    # Dramatic War-Room Lighting (Golden Beacon Glow + Red Frontline Glow + Raking Rim Light)
-    add_point_light("PetrogradGoldGlow", (px, py, 0.95), 240.0, radius=0.45, col=(1.0, 0.76, 0.22))
-    add_point_light("EasternFrontRedGlow", (-0.9, -0.8, 0.95), 220.0, radius=0.85, col=(1.0, 0.12, 0.15))
-    add_spot_light("MapRakingKey", (1.5, -6.5, 7.5), (42, 0, 10), 850.0, size=2.5, spot_deg=68.0, col=(0.68, 0.82, 1.0))
-
-    cam = add_camera(loc=(0.2, -7.8, 6.4), rot_deg=(47.5, 0.0, 0.0), lens=32.0)
+    cam = add_camera(loc=(0.5, -8.2, 6.2), lens=32.0)
 
     def update_frame(f):
-        u = smoothstep((f - 900.0) / 299.0)
-        cam.location = (
-            lerp(-0.35, 0.72, u),
-            lerp(-8.15, -6.45, u),
-            lerp(6.85, 5.35, u),
-        )
-        cam.rotation_euler = (
-            math.radians(lerp(46.0, 49.5, u)),
-            0.0,
-            math.radians(lerp(-4.0, 3.0, u)),
-        )
+        # Full 360-degree (0 -> 2*pi) continuous 3D orbit around the Real GIS Relief Map
+        u = (f - 900.0) / 300.0
+        theta = u * 2.0 * math.pi
+        cx, cy = 0.45, 0.35
+        radius = 7.85
+        cam.location = (cx + radius * math.sin(theta), cy - radius * math.cos(theta), 5.85)
+        look_at(cam, (cx, cy, 0.25))
         pulse = 1.0 + 0.22 * math.sin(f * 0.3)
         pin_ring.scale = (pulse, pulse, 1.0)
+        pin_ring2.scale = (1.15 - 0.15 * math.sin(f * 0.3), 1.15 - 0.15 * math.sin(f * 0.3), 1.0)
 
     return scene, update_frame
 
 
 # ==============================================================================
-# SCENE 4 (Frames 1200..1499): 90° TOP-DOWN FORENSIC CRIME SCENE + 3D REVOLVER
+# SCENE 4 (Frames 1200..1499): FULL 360° OVERHEAD FORENSIC CRIME SCENE ORBIT
 # ==============================================================================
 def build_scene_4():
-    scene = configure_cycles(samples_override=4)
-    setup_world((0.002, 0.002, 0.004), 1.0)
+    scene = configure_sharp_1080p()
+    setup_world((0.002, 0.002, 0.005))
 
-    stage, _, _ = create_3d_depth_stage(
-        "rasputin_kf_5_crimescene.jpg", "CrimeSceneTopDown3D", width=16.0, height=9.0, nx=192, ny=108, depth_amp=0.80, mode="topdown"
+    # 100% Flat, Un-Warped, Razor-Sharp 2560x1440 Crime Scene Floor
+    mat_floor = make_crisp_tex_mat("CrimeSceneFloorMat", "rasputin_kf_5_crimescene.jpg", strength=1.0)
+    create_horizontal_uv_floor("CrimeSceneFloor", 16.0, 9.0, mat_floor, loc=(0.0, 0.0, 0.0))
+
+    mat_marble = make_studio_3d_mat(
+        "ForensicMarble3D", (0.16, 0.17, 0.20), (0.68, 0.66, 0.62), (0.98, 0.96, 0.90), rim_col=(1.0, 0.84, 0.52)
     )
+    mat_gun_steel = make_studio_3d_mat(
+        "WebleySteel3D", (0.12, 0.14, 0.18), (0.55, 0.58, 0.65), (0.95, 0.96, 1.0), rim_col=(1.0, 0.85, 0.45), fresnel_blend=0.45
+    )
+    mat_brass = make_emit_mat("BrassShell3D", (1.0, 0.82, 0.28), strength=1.35)
+    mat_crimson = make_emit_mat("ForensicCrimsonRim", (0.95, 0.14, 0.18), strength=1.25)
+    mat_grid = make_emit_mat("ForensicGrid", (0.28, 0.32, 0.42), strength=0.55)
 
-    # Real 3D Webley .455 Revolver + 3 Spent Brass Bullet Casings on the Marble Tiles beside Rasputin's Right Hand!
-    mat_gun_steel = make_pbr_mat("WebleySteel3D", (0.78, 0.80, 0.84), rough=0.16, metal=0.92, emit_col=(0.78, 0.80, 0.84), emit_str=0.35)
-    mat_brass = make_pbr_mat("BrassShell3D", (1.0, 0.82, 0.28), rough=0.14, metal=0.94, emit_col=(1.0, 0.82, 0.28), emit_str=0.55)
+    # 3D Architectural Frame Rim around the 16x9 Crime Scene Floor + Surrounding 3D Grid
+    add_box("FloorRimN", (0.0, 4.6, 0.15), (16.4, 0.22, 0.35), mat_marble)
+    add_box("FloorRimS", (0.0, -4.6, 0.15), (16.4, 0.22, 0.35), mat_marble)
+    add_box("FloorRimE", (8.1, 0.0, 0.15), (0.22, 9.4, 0.35), mat_marble)
+    add_box("FloorRimW", (-8.1, 0.0, 0.15), (0.22, 9.4, 0.35), mat_marble)
+    add_box("FloorCrimsonBorder", (0.0, 0.0, -0.05), (16.6, 9.6, 0.06), mat_crimson)
 
-    rev_obj = load_blend_asset("bk_revolver.blend", "CrimeRevolver3D", target_height=0.95, mat=mat_gun_steel)
+    for g in range(-14, 15, 2):
+        add_box(f"CrimeGX_{g}", (g * 1.1, 0.0, -0.12), (0.02, 28.0, 0.01), mat_grid)
+        add_box(f"CrimeGY_{g}", (0.0, g * 1.1, -0.12), (28.0, 0.02, 0.01), mat_grid)
+
+    # 4 Real 3D Corinthian Columns + 4 Real 3D Marble Statues at the Corners of the Crime Scene
+    col_proto = load_blend_asset("bk_column_corinthian.blend", "CrimeColProto", target_height=2.2, mat=mat_marble)
+    stat_proto = load_blend_asset("bk_bearded_statue.blend", "CrimeStatueProto", target_height=1.9, mat=mat_marble)
+    corners = [(-7.4, -3.9, 45.0), (7.4, -3.9, 135.0), (7.4, 3.9, -135.0), (-7.4, 3.9, -45.0)]
+    for idx_c, (cx, cy, rot_d) in enumerate(corners):
+        rad = math.radians(rot_d)
+        if col_proto:
+            if idx_c == 0:
+                col_proto.location = (cx, cy, 0.0)
+            else:
+                clone_obj(col_proto, f"CrimeCol_{idx_c}", (cx, cy, 0.0))
+        if stat_proto:
+            sx = cx * 0.82
+            sy = cy * 0.80
+            if idx_c == 0:
+                stat_proto.location = (sx, sy, 0.0)
+                stat_proto.rotation_euler = (0.0, 0.0, rad)
+            else:
+                clone_obj(stat_proto, f"CrimeStat_{idx_c}", (sx, sy, 0.0), rot=(0.0, 0.0, rad))
+
+    # Real 3D Webley .455 Revolver + 3 Spent Brass Bullet Casings on the Marble Tiles beside Rasputin's Right Hand
+    rev_obj = load_blend_asset("bk_revolver.blend", "CrimeRevolver3D", target_height=1.10, mat=mat_gun_steel)
     if rev_obj:
-        rev_obj.location = (1.55, -0.45, 0.32)
+        rev_obj.location = (1.65, -0.52, 0.05)
         rev_obj.rotation_euler = (0.0, 0.0, math.radians(-38.0))
 
-    for idx_s, (sx, sy) in enumerate([(1.15, -0.78), (1.88, -0.22), (1.42, -0.95)]):
-        add_cyl(f"Shell3D_{idx_s}", (sx, sy, 0.28), 0.042, 0.12, mat_brass, verts=16, rot=(math.radians(90), 0, math.radians(idx_s * 52)))
+    for idx_s, (sx, sy) in enumerate([(1.20, -0.82), (1.92, -0.25), (1.48, -0.98)]):
+        add_cyl(f"Shell3D_{idx_s}", (sx, sy, 0.05), 0.048, 0.14, mat_brass, verts=16, rot=(math.radians(90), 0, math.radians(idx_s * 52)))
 
-    # Raking warm spotlight across the 3D crime scene
-    spot_3d = add_point_light("ForensicSpot3D", (0.0, 0.2, 4.2), 75.0, radius=0.8, col=(1.0, 0.84, 0.55))
-
-    cam = add_camera(loc=(0.0, 0.0, 10.2), rot_deg=(0.0, 0.0, 0.0), lens=35.0)
+    cam = add_camera(loc=(0.0, -4.2, 13.5), lens=30.0)
 
     def update_frame(f):
-        u = smoothstep((f - 1200.0) / 299.0)
-        # Dramatic 90° Top-Down Forensic Crane Pull-Up + Slow Counter-Clockwise Spiral
-        cam.location = (
-            lerp(-0.15, 0.05, u),
-            lerp(-0.12, 0.05, u),
-            lerp(8.85, 11.45, u),
-        )
-        cam.rotation_euler = (
-            math.radians(lerp(1.5, -0.5, u)),
-            math.radians(lerp(-1.2, 0.8, u)),
-            math.radians(lerp(-5.5, 4.5, u)),
-        )
-        spot_3d.data.energy = 75.0 + 12.0 * math.sin(f * 0.25)
+        # Full 360-degree (0 -> 2*pi) overhead forensic crane orbit + pull-up over 300 frames
+        u = (f - 1200.0) / 300.0
+        theta = u * 2.0 * math.pi
+        radius = lerp(4.2, 3.2, smoothstep(u))
+        cam_z = lerp(13.5, 15.2, smoothstep(u))
+        cam.location = (radius * math.sin(theta), -radius * math.cos(theta), cam_z)
+        look_at(cam, (0.0, 0.0, 0.0))
 
     return scene, update_frame
 
@@ -802,4 +964,4 @@ for frame_idx in range(START_FRAME, END_FRAME + 1):
     out_file = os.path.join(OUT_DIR, f"frame_{frame_idx:04d}.png")
     scene_obj.render.filepath = out_file
     bpy.ops.render.render(write_still=True)
-    print(f"Rendered Hybrid 3D frame {frame_idx:04d} (Scene {sid}) -> {out_file}")
+    print(f"Rendered Sharp 1080p 360-Orbit frame {frame_idx:04d} (Scene {sid}) -> {out_file}")
