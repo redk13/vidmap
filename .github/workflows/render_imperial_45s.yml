@@ -3,13 +3,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  render_3d_shards:
+  render_missing_2_shards:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+        shard: [12, 14]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -23,13 +23,15 @@ jobs:
 
       - name: Render 75 Animated 3D Cycles Frames for Shard ${{ matrix.shard }}
         run: |
+          set -e
           START_F=$(( ${{ matrix.shard }} * 75 ))
           END_F=$(( START_F + 74 ))
           mkdir -p /tmp/shard_frames
           echo "Rendering frames $START_F to $END_F..."
           blender -b -P imperial_45s/render_rasputin_3d_shard.py -- $START_F $END_F /tmp/shard_frames --preview
-          ls -lh /tmp/shard_frames | head -n 10
-          echo "Total frames rendered in shard: $(ls -1 /tmp/shard_frames/*.png | wc -l)"
+          COUNT=$(ls -1 /tmp/shard_frames/*.png | wc -l)
+          echo "Total frames rendered in shard: $COUNT"
+          test "$COUNT" -eq 75
 
       - name: Upload Shard Frames
         uses: actions/upload-artifact@v4
@@ -38,7 +40,7 @@ jobs:
           path: /tmp/shard_frames/*.png
 
   assemble_masterpiece:
-    needs: render_3d_shards
+    needs: render_missing_2_shards
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -51,16 +53,27 @@ jobs:
           sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
           pip install -q pillow numpy
 
-      - name: Download All 20 Shards (1500 Frames)
+      - name: Download 2 Newly Rendered Shards (12 & 14)
         uses: actions/download-artifact@v4
         with:
           path: /tmp/all_3d_frames
           pattern: rasputin-3d-shard-*
           merge-multiple: true
 
+      - name: Download 18 Already-Completed Shards from Run 39070421386
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/all_3d_frames
+          for s in 0 1 2 3 4 5 6 7 8 9 10 11 13 15 16 17 18 19; do
+            echo "Downloading rasputin-3d-shard-$s from Run 39070421386..."
+            gh run download 39070421386 --repo redk13/vidmap -n "rasputin-3d-shard-$s" -D /tmp/all_3d_frames
+          done
+          echo "Total assembled 3D frames: $(ls -1 /tmp/all_3d_frames/*.png | wc -l)"
+
       - name: Composite 1080p Noir Graphics, Mix Audio & Encode Masterpiece MP4
         run: |
-          echo "Downloaded 3D frames count: $(ls -1 /tmp/all_3d_frames/*.png | wc -l)"
+          set -e
           mkdir -p /tmp/final_out
           python3 imperial_45s/render_rasputin_compositor.py \
             /tmp/all_3d_frames \

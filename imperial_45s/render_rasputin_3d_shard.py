@@ -112,7 +112,7 @@ def make_obsidian_terrain_mat(name, c1, c2, rough=0.26, coat=0.45, scale=7.5, bu
     tc = nt.nodes.new("ShaderNodeTexCoord")
     noise = nt.nodes.new("ShaderNodeTexNoise")
     noise.inputs["Scale"].default_value = scale
-    noise.inputs["Detail"].default_value = 12.0
+    noise.inputs["Detail"].default_value = 4.0
     noise.inputs["Roughness"].default_value = 0.72
     vor = nt.nodes.new("ShaderNodeTexVoronoi")
     vor.feature = "DISTANCE_TO_EDGE"
@@ -552,7 +552,7 @@ def build_scene_3():
     100% Real GIS Geographic Relief Map of Imperial Russia, Baltic Sea, Gulf of Finland
     and the 1916 Eastern Front built from Natural Earth 50m GeoJSON inside Blender 4.3 Cycles.
     """
-    scene = configure_cycles(samples_override=12)
+    scene = configure_cycles(samples_override=5)
     setup_world((0.002, 0.003, 0.007), 1.0)
 
     mat_grid = make_pbr_mat("GridWire", (0.55, 0.65, 0.82), rough=0.2, emit_col=(0.55, 0.65, 0.82), emit_str=0.65)
@@ -618,13 +618,15 @@ def build_scene_3():
             curve_data.dimensions = "2D"
             curve_data.fill_mode = "BOTH"
             curve_data.extrude = ext
-            curve_data.bevel_depth = 0.015
+            curve_data.bevel_depth = 0.012
+            curve_data.resolution_u = 3
 
             rim_data = bpy.data.curves.new(f"NeonRim_{cname}", type="CURVE") if rmat else None
             if rim_data:
                 rim_data.dimensions = "2D"
                 rim_data.fill_mode = "NONE"
-                rim_data.bevel_depth = 0.032
+                rim_data.bevel_depth = 0.028
+                rim_data.resolution_u = 3
 
             has_pts = False
             for poly in polys:
