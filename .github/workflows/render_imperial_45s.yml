@@ -1,10 +1,11 @@
 name: Assemble Rasputin 1916 Imperial 50s 1080p Masterpiece (All 20 Shards Ready)
 on:
   workflow_dispatch:
-
-permissions:
-  actions: read
-  contents: read
+    inputs:
+      gh_pat:
+        description: "PAT for cross-run artifact download"
+        required: true
+        type: string
 
 jobs:
   assemble_masterpiece:
@@ -24,7 +25,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           run-id: 39070421386
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ inputs.gh_pat }}
           path: /tmp/all_3d_frames
           pattern: rasputin-3d-shard-*
           merge-multiple: true
@@ -33,7 +34,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           run-id: 39102320533
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ inputs.gh_pat }}
           path: /tmp/all_3d_frames
           pattern: rasputin-3d-shard-*
           merge-multiple: true
