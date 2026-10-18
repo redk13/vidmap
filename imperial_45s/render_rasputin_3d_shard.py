@@ -58,7 +58,7 @@ def configure_cycles(samples_override=None):
     scene.cycles.denoiser = "OPENIMAGEDENOISE"
     scene.cycles.denoising_prefilter = "FAST"
     scene.cycles.use_persistent_data = True
-    scene.cycles.max_bounces = 2
+    scene.cycles.max_bounces = 1
     scene.cycles.diffuse_bounces = 1
     scene.cycles.glossy_bounces = 1
     scene.cycles.transmission_bounces = 1
@@ -369,7 +369,7 @@ def add_camera(loc, rot_deg, lens=35.0):
 # SCENE 0 (Frames 0..299): 3D DEPTH-PROJECTED CUTAWAY OF YUSUPOV PALACE + 3D TEXT
 # ==============================================================================
 def build_scene_0():
-    scene = configure_cycles(samples_override=8)
+    scene = configure_cycles(samples_override=4)
     setup_world((0.002, 0.003, 0.005), 1.0)
 
     stage, _, bsdf = create_3d_depth_stage(
@@ -431,7 +431,7 @@ def build_scene_0():
 # SCENE 1 (Frames 300..599): 3D DEPTH-PROJECTED BASEMENT TABLEAU + CANDLE FLICKER
 # ==============================================================================
 def build_scene_1():
-    scene = configure_cycles(samples_override=8)
+    scene = configure_cycles(samples_override=4)
     setup_world((0.003, 0.002, 0.005), 1.0)
 
     stage, _, _ = create_3d_depth_stage(
@@ -483,7 +483,7 @@ def build_scene_1():
 # SCENE 2 (Frames 600..899): 3D SLICED MARBLE BUST + ANIMATED 3D LASER SEPARATION
 # ==============================================================================
 def build_scene_2():
-    scene = configure_cycles(samples_override=8)
+    scene = configure_cycles(samples_override=4)
     setup_world((0.005, 0.001, 0.002), 1.0)
 
     # Create two 3D depth-projected meshes split along the 38° laser line so the upper-right bust half physically separates in 3D!
@@ -552,7 +552,7 @@ def build_scene_3():
     100% Real GIS Geographic Relief Map of Imperial Russia, Baltic Sea, Gulf of Finland
     and the 1916 Eastern Front built from Natural Earth 50m GeoJSON inside Blender 4.3 Cycles.
     """
-    scene = configure_cycles(samples_override=5)
+    scene = configure_cycles(samples_override=4)
     setup_world((0.002, 0.003, 0.007), 1.0)
 
     mat_grid = make_pbr_mat("GridWire", (0.55, 0.65, 0.82), rough=0.2, emit_col=(0.55, 0.65, 0.82), emit_str=0.65)
@@ -736,7 +736,7 @@ def build_scene_3():
 # SCENE 4 (Frames 1200..1499): 90° TOP-DOWN FORENSIC CRIME SCENE + 3D REVOLVER
 # ==============================================================================
 def build_scene_4():
-    scene = configure_cycles(samples_override=8)
+    scene = configure_cycles(samples_override=4)
     setup_world((0.002, 0.002, 0.004), 1.0)
 
     stage, _, _ = create_3d_depth_stage(

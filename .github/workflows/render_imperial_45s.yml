@@ -1,14 +1,46 @@
-name: Assemble Rasputin 1916 Imperial 50s 1080p Masterpiece (All 20 Shards Ready)
+name: Render Rasputin 1916 Imperial 50s 1080p Masterpiece (20 Shards)
 on:
   workflow_dispatch:
-    inputs:
-      gh_pat:
-        description: "PAT for cross-run REST API artifact download"
-        required: true
-        type: string
 
 jobs:
+  render_3d_shards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Blender 4.3.2 & System Libraries
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libxi6 libxrender1 libxxf86vm1 libxfixes3 libxkbcommon0 libsm6 libice6 libgl1
+          curl -sL https://download.blender.org/release/Blender4.3/blender-4.3.2-linux-x64.tar.xz | sudo tar -xJ -C /opt/
+          sudo ln -sf /opt/blender-4.3.2-linux-x64/blender /usr/local/bin/blender
+
+      - name: Render 75 Animated 3D Cycles Frames for Shard ${{ matrix.shard }}
+        run: |
+          set -e
+          START_F=$(( ${{ matrix.shard }} * 75 ))
+          END_F=$(( START_F + 74 ))
+          mkdir -p /tmp/shard_frames
+          echo "Rendering frames $START_F to $END_F..."
+          blender -b -P imperial_45s/render_rasputin_3d_shard.py -- $START_F $END_F /tmp/shard_frames --preview
+          COUNT=$(ls -1 /tmp/shard_frames/*.png | wc -l)
+          echo "Total frames rendered in shard: $COUNT"
+          test "$COUNT" -eq 75
+
+      - name: Upload Shard Frames
+        uses: actions/upload-artifact@v4
+        with:
+          name: rasputin-3d-shard-${{ matrix.shard }}
+          path: /tmp/shard_frames/*.png
+
   assemble_masterpiece:
+    needs: render_3d_shards
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -18,34 +50,20 @@ jobs:
       - name: Install Compositor Dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core unzip jq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
           pip install -q pillow numpy
 
-      - name: Download All 20 Shards via GitHub REST API (18 from 39070421386 + 2 from 39102320533)
-        env:
-          PAT: ${{ inputs.gh_pat }}
-        run: |
-          set -e
-          mkdir -p /tmp/all_3d_frames
-          for RID in 39070421386 39102320533; do
-            echo "Listing artifacts for Run $RID..."
-            curl -s -H "Authorization: Bearer $PAT" \
-              "https://api.github.com/repos/redk13/vidmap/actions/runs/$RID/artifacts?per_page=100" \
-              | jq -r '.artifacts[] | select(.name | startswith("rasputin-3d-shard-")) | "\(.name) \(.archive_download_url)"' \
-              | while read -r NAME URL; do
-                  echo "Downloading $NAME..."
-                  curl -sL -H "Authorization: Bearer $PAT" "$URL" -o "/tmp/${NAME}.zip"
-                  unzip -q -o "/tmp/${NAME}.zip" -d /tmp/all_3d_frames/
-                  rm -f "/tmp/${NAME}.zip"
-                done
-          done
-          COUNT=$(ls -1 /tmp/all_3d_frames/*.png | wc -l)
-          echo "Total assembled 3D frames: $COUNT"
-          test "$COUNT" -eq 1500
+      - name: Download All 20 Shards (1500 Frames)
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/all_3d_frames
+          pattern: rasputin-3d-shard-*
+          merge-multiple: true
 
-      - name: Run 1080p Compositor + Audio Mixer + H.264 Encode
+      - name: Composite 1080p Noir Graphics, Mix Audio & Encode Masterpiece MP4
         run: |
           set -e
+          echo "Downloaded 3D frames count: $(ls -1 /tmp/all_3d_frames/*.png | wc -l)"
           mkdir -p /tmp/final_out
           python3 imperial_45s/render_rasputin_compositor.py \
             /tmp/all_3d_frames \
