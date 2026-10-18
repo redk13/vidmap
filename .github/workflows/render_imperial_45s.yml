@@ -3,14 +3,14 @@ on:
   workflow_dispatch:
     inputs:
       gh_pat:
-        description: "PAT for cross-run artifact download"
+        description: "PAT for cross-run REST API artifact download"
         required: true
         type: string
 
 jobs:
   assemble_masterpiece:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -18,32 +18,34 @@ jobs:
       - name: Install Compositor Dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core unzip jq
           pip install -q pillow numpy
 
-      - name: Download 18 Shards from Run 39070421386
-        uses: actions/download-artifact@v4
-        with:
-          run-id: 39070421386
-          github-token: ${{ inputs.gh_pat }}
-          path: /tmp/all_3d_frames
-          pattern: rasputin-3d-shard-*
-          merge-multiple: true
-
-      - name: Download 2 Shards (12 & 14) from Run 39102320533
-        uses: actions/download-artifact@v4
-        with:
-          run-id: 39102320533
-          github-token: ${{ inputs.gh_pat }}
-          path: /tmp/all_3d_frames
-          pattern: rasputin-3d-shard-*
-          merge-multiple: true
-
-      - name: Verify All 1500 Frames & Run 1080p Compositor + Audio Mixer
+      - name: Download All 20 Shards via GitHub REST API (18 from 39070421386 + 2 from 39102320533)
+        env:
+          PAT: ${{ inputs.gh_pat }}
         run: |
           set -e
+          mkdir -p /tmp/all_3d_frames
+          for RID in 39070421386 39102320533; do
+            echo "Listing artifacts for Run $RID..."
+            curl -s -H "Authorization: Bearer $PAT" \
+              "https://api.github.com/repos/redk13/vidmap/actions/runs/$RID/artifacts?per_page=100" \
+              | jq -r '.artifacts[] | select(.name | startswith("rasputin-3d-shard-")) | "\(.name) \(.archive_download_url)"' \
+              | while read -r NAME URL; do
+                  echo "Downloading $NAME..."
+                  curl -sL -H "Authorization: Bearer $PAT" "$URL" -o "/tmp/${NAME}.zip"
+                  unzip -q -o "/tmp/${NAME}.zip" -d /tmp/all_3d_frames/
+                  rm -f "/tmp/${NAME}.zip"
+                done
+          done
           COUNT=$(ls -1 /tmp/all_3d_frames/*.png | wc -l)
           echo "Total assembled 3D frames: $COUNT"
+          test "$COUNT" -eq 1500
+
+      - name: Run 1080p Compositor + Audio Mixer + H.264 Encode
+        run: |
+          set -e
           mkdir -p /tmp/final_out
           python3 imperial_45s/render_rasputin_compositor.py \
             /tmp/all_3d_frames \
