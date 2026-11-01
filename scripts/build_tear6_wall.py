@@ -77,7 +77,7 @@ def build_walls():
             segments(d, (190, y), parts, hf)
             y += int(card['fs'] * 1.02)
         d.text((190, y + 12), card['date'], font=font(FONT_S, 38), fill=(52, 52, 52, 255))
-        d.text((190, 990), card['credit'], font=font(FONT_S, 18), fill=(68, 68, 68, 255))
+        d.text((190, 900), card['credit'], font=font(FONT_S, 18), fill=(68, 68, 68, 255))
         bf = font(FONT_S, 20)
         for i, key in enumerate(('body1', 'body2')):
             x = 1110 + i * 365
