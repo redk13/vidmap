@@ -43,6 +43,6 @@ Verified on 2026-11-01 before creating the replacement sample.
 - Highlight: **How Farming in Japan is Changing**
 - Small newspaper columns: shortened/adapted from the licensed article text; adaptation recorded here.
 
-## Asset rule for the replacement
+## Corrected layer rule after the user's clarification
 
-The paper and background are generated image assets. Headlines are typeset onto those raster assets, then each finished clipping is cut into two independent WebP halves. Remotion only moves the resulting image halves; it does not procedurally create the paper.
+The licensed headlines, dates, yellow highlights and attribution are typeset onto a generated **wall** image. A separate generated gray **paper cover** hides that wall and is cut into independent top and bottom WebP halves. During the shot the cover halves move apart and reveal the text on the wall; the headline is not printed on the tearing paper. Remotion only moves the paper-cover images and does not procedurally create the paper or the wall.

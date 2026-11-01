@@ -4,7 +4,7 @@ on:
     branches: [shot-lab]
   workflow_dispatch:
     inputs:
-      comp: {required: false, default: labTear6}
+      comp: {required: false, default: labTearWall}
       frames: {required: false, default: 0-359}
 jobs:
   render:
@@ -14,6 +14,6 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: 20}
       - run: npm install --no-audit --no-fund
-      - run: npx remotion render src/index.ts ${{ inputs.comp || 'labTear6' }} out/shot.mp4 --frames=${{ inputs.frames || '0-359' }} --concurrency=2 --muted
+      - run: npx remotion render src/index.ts ${{ inputs.comp || 'labTearWall' }} out/shot.mp4 --frames=${{ inputs.frames || '0-359' }} --concurrency=2 --muted
       - uses: actions/upload-artifact@v4
         with: {name: shot, path: out/shot.mp4}
