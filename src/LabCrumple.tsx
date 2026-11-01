@@ -3,78 +3,74 @@ import {AbsoluteFill, Img, staticFile, useCurrentFrame, delayRender, continueRen
 import {ThreeCanvas} from '@remotion/three';
 import * as THREE from 'three';
 
-// ---------- deterministic value noise ----------
-const mulberry = (seed: number) => {
-  let s = seed | 0;
-  return () => {
-    s = (s + 0x6d2b79f5) | 0;
-    let t = Math.imul(s ^ (s >>> 15), 1 | s);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-};
-const makeNoise = (seed: number, N: number) => {
-  const rnd = mulberry(seed);
-  const g = new Float32Array(N * N);
-  for (let i = 0; i < N * N; i++) g[i] = rnd() * 2 - 1;
-  const sm = (x: number) => x * x * (3 - 2 * x);
-  return (u: number, v: number) => {
-    const x = Math.min(Math.max(u, 0), 0.999) * (N - 1);
-    const y = Math.min(Math.max(v, 0), 0.999) * (N - 1);
-    const x0 = Math.floor(x), y0 = Math.floor(y);
-    const x1 = Math.min(x0 + 1, N - 1), y1 = Math.min(y0 + 1, N - 1);
-    const fx = sm(x - x0), fy = sm(y - y0);
-    const a = g[y0 * N + x0], b = g[y0 * N + x1], c = g[y1 * N + x0], d = g[y1 * N + x1];
-    return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
-  };
+// Professional pipeline: Blender cloth-sim crumple (central attractor + turbulence,
+// self-collision), baked vertex animation played back in three.js. Un-crumple = reversed sim.
+const SIM_RANGE = 30; // sim frames 0..30 = flat -> wad
+
+type SimData = {pos: Float32Array; faces: Uint32Array; nV: number; frames: number};
+
+const useSim = (): SimData | null => {
+  const [data, setData] = useState<SimData | null>(null);
+  const [handle] = useState(() => delayRender('sim-data'));
+  useEffect(() => {
+    Promise.all([
+      fetch(staticFile('crump.bin')).then((r) => r.arrayBuffer()),
+      fetch(staticFile('crump-meta.json')).then((r) => r.json()),
+    ]).then(([buf, meta]) => {
+      setData({pos: new Float32Array(buf), faces: Uint32Array.from(meta.faces), nV: meta.nV, frames: meta.frames});
+      continueRender(handle);
+    });
+  }, [handle]);
+  return data;
 };
 
-// ---------- crumpling sheet ----------
 const Sheet: React.FC<{
-  tex: THREE.Texture; w: number; h: number; seed: number;
-  open: number; ampMax: number; rest: number;
-  pos: [number, number, number]; rotZ?: number;
-}> = ({tex, w, h, seed, open, ampMax, rest, pos, rotZ = 0}) => {
-  const seg = 56;
-  const geo = useMemo(() => new THREE.PlaneGeometry(w, h, seg, seg), [w, h]);
-  const base = useMemo(() => Float32Array.from(geo.attributes.position.array as Float32Array), [geo]);
-  const noises = useMemo(
-    () => [makeNoise(seed, 9), makeNoise(seed + 7, 21), makeNoise(seed + 13, 38), makeNoise(seed + 29, 15), makeNoise(seed + 41, 15)],
-    [seed]
-  );
-  const amp = ampMax + (rest - ampMax) * open;
-  const s = 0.3 + 0.7 * open;
+  sim: SimData; tex: THREE.Texture; simIdx: number; scale: number;
+  pos: [number, number, number]; rotZ?: number; flip?: boolean;
+}> = ({sim, tex, simIdx, scale, pos, rotZ = 0, flip}) => {
+  const geo = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    g.setIndex(new THREE.BufferAttribute(sim.faces, 1));
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(sim.nV * 3), 3));
+    const uv = new Float32Array(sim.nV * 2);
+    for (let i = 0; i < sim.nV; i++) {
+      const x = sim.pos[i * 3], y = sim.pos[i * 3 + 1]; // frame 0 = flat
+      uv[i * 2] = x / 1.12 + 0.5;
+      uv[i * 2 + 1] = y / 0.5 + 0.5;
+    }
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    return g;
+  }, [sim]);
+  // lerp between baked sim frames
+  const s = Math.min(Math.max(simIdx, 0), sim.frames - 1.001);
+  const i0 = Math.floor(s), t = s - i0;
   const attr = geo.attributes.position as THREE.BufferAttribute;
   const arr = attr.array as Float32Array;
-  for (let i = 0; i < arr.length; i += 3) {
-    const ox = base[i], oy = base[i + 1];
-    const u = ox / w + 0.5, v = oy / h + 0.5;
-    const z = (noises[0](u, v) * 0.62 + noises[1](u, v) * 0.3 + noises[2](u, v) * 0.13) * amp;
-    const dx = noises[3](u, v) * amp * 0.5;
-    const dy = noises[4](u, v) * amp * 0.5;
-    arr[i] = ox * s + dx;
-    arr[i + 1] = oy * s + dy;
-    arr[i + 2] = z;
-  }
+  const a = sim.pos.subarray(i0 * sim.nV * 3, (i0 + 1) * sim.nV * 3);
+  const b = sim.pos.subarray((i0 + 1) * sim.nV * 3, (i0 + 2) * sim.nV * 3);
+  for (let i = 0; i < arr.length; i++) arr[i] = a[i] + (b[i] - a[i]) * t;
   attr.needsUpdate = true;
   geo.computeVertexNormals();
+  if (flip) {
+    tex.center.set(0.5, 0.5);
+    tex.rotation = Math.PI;
+  }
   return (
-    <mesh geometry={geo} position={pos} rotation={[0, 0, rotZ]}>
-      <meshStandardMaterial map={tex} transparent alphaTest={0.3} side={THREE.DoubleSide} roughness={0.92} metalness={0} />
+    <mesh geometry={geo} position={pos} rotation={[0, 0, rotZ + (flip ? Math.PI : 0)]} scale={scale}>
+      <meshStandardMaterial map={tex} transparent alphaTest={0.25} side={THREE.DoubleSide} roughness={0.9} metalness={0} />
     </mesh>
   );
 };
 
-// ---------- main shot ----------
 export const LabCrumple: React.FC = () => {
   const frame = useCurrentFrame();
+  const sim = useSim();
   const [textures, setTextures] = useState<null | {paper: THREE.Texture; strip: THREE.Texture}>(null);
   const [handle] = useState(() => delayRender('crumple-textures'));
   useEffect(() => {
     const l = new THREE.TextureLoader();
     Promise.all([l.loadAsync(staticFile('crump-paper.png')), l.loadAsync(staticFile('crump-strip.png'))]).then(([p, st]) => {
-      p.colorSpace = THREE.SRGBColorSpace;
-      st.colorSpace = THREE.SRGBColorSpace;
+      p.colorSpace = THREE.SRGBColorSpace; st.colorSpace = THREE.SRGBColorSpace;
       p.anisotropy = 8; st.anisotropy = 8;
       setTextures({paper: p, strip: st});
       continueRender(handle);
@@ -82,39 +78,36 @@ export const LabCrumple: React.FC = () => {
   }, [handle]);
 
   const io = Easing.inOut(Easing.cubic);
-  // openness: wad -> flat -> wad (strip slightly delayed)
-  const oPaper = interpolate(frame, [46, 140, 258, 320], [0, 1, 1, 0], {easing: io, extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-  const oStrip = interpolate(frame, [64, 152, 250, 312], [0, 1, 1, 0], {easing: io, extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-  // fly in / out
-  const pin = interpolate(frame, [0, 54], [0, 1], {easing: Easing.out(Easing.cubic), extrapolateRight: 'clamp'});
-  const pout = interpolate(frame, [306, 358], [0, 1], {easing: Easing.in(Easing.cubic), extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-  const gx = (-7.6) * (1 - pin) + 8.2 * pout;
+  // openness 0 = wad, 1 = flat (sim played in reverse to open)
+  const oPaper = interpolate(frame, [40, 148, 258, 326], [0, 1, 1, 0], {easing: io, extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const oStrip = interpolate(frame, [56, 160, 248, 316], [0, 1, 1, 0], {easing: io, extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const simPaper = (1 - oPaper) * SIM_RANGE;
+  const simStrip = (1 - oStrip) * SIM_RANGE;
+
+  const pin = interpolate(frame, [0, 52], [0, 1], {easing: Easing.out(Easing.cubic), extrapolateRight: 'clamp'});
+  const pout = interpolate(frame, [310, 358], [0, 1], {easing: Easing.in(Easing.cubic), extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const gx = -7.6 * (1 - pin) + 8.2 * pout;
   const gy = 3.4 * (1 - pin) - 3.1 * pout;
-  // tumble rotations settle by f~135, return while leaving
-  const rin = interpolate(frame, [0, 135], [1, 0], {easing: Easing.out(Easing.cubic), extrapolateRight: 'clamp'});
-  const rout = interpolate(frame, [296, 360], [0, 1], {easing: Easing.in(Easing.quad), extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-  const rx = 2.1 * rin - 1.6 * rout;
-  const ry = -2.4 * rin + 2.0 * rout;
-  const rz = 1.7 * rin - 1.2 * rout;
-  // gentle push while readable (camera always traveling)
-  const push = interpolate(frame, [120, 280], [1, 1.07], {easing: io, extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const rin = interpolate(frame, [0, 140], [1, 0], {easing: Easing.out(Easing.cubic), extrapolateRight: 'clamp'});
+  const rout = interpolate(frame, [300, 360], [0, 1], {easing: Easing.in(Easing.quad), extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const rx = 2.0 * rin - 1.5 * rout;
+  const ry = -2.3 * rin + 1.9 * rout;
+  const rz = 1.6 * rin - 1.1 * rout;
+  const push = interpolate(frame, [130, 280], [1, 1.07], {easing: io, extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   const bgScale = interpolate(frame, [0, 360], [1.06, 1.15]);
 
   return (
     <AbsoluteFill style={{background: '#0c0e10', overflow: 'hidden'}}>
-      <Img
-        src={staticFile('city-bg.jpg')}
-        style={{position: 'absolute', width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${bgScale})`, filter: 'blur(13px) brightness(0.72) saturate(0.8)'}}
-      />
+      <Img src={staticFile('city-bg.jpg')} style={{position: 'absolute', width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${bgScale})`, filter: 'blur(13px) brightness(0.72) saturate(0.8)'}} />
       <AbsoluteFill style={{background: 'radial-gradient(ellipse at center, rgba(0,0,0,0) 48%, rgba(0,0,0,0.45) 100%)'}} />
-      {textures ? (
+      {textures && sim ? (
         <ThreeCanvas width={1920} height={1080} camera={{fov: 33, position: [0, 0, 8]}}>
-          <ambientLight intensity={0.78} />
-          <directionalLight position={[3, 5, 6]} intensity={1.05} />
+          <ambientLight intensity={0.8} />
+          <directionalLight position={[3, 5, 6]} intensity={1.0} />
           <directionalLight position={[-4, -2, 5]} intensity={0.22} />
           <group position={[gx, gy, 0]} rotation={[rx, ry, rz]} scale={push}>
-            <Sheet tex={textures.paper} w={5.45} h={2.44} seed={5} open={oPaper} ampMax={1.35} rest={0.045} pos={[0.1, -0.5, 0]} rotZ={-0.012} />
-            <Sheet tex={textures.strip} w={3.95} h={1.77} seed={23} open={oStrip} ampMax={1.1} rest={0.04} pos={[-1.2, 1.08, 0.26]} rotZ={0.03} />
+            <Sheet sim={sim} tex={textures.paper} simIdx={simPaper} scale={4.86} pos={[0.1, -0.5, 0]} rotZ={-0.012} />
+            <Sheet sim={sim} tex={textures.strip} simIdx={simStrip} scale={3.53} pos={[-1.2, 1.08, 0.3]} rotZ={0.03} flip />
           </group>
         </ThreeCanvas>
       ) : null}
