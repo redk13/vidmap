@@ -19,8 +19,11 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - name: Install Remotion dependencies
-        run: npm ci --no-audit --no-fund
+      - name: Install Remotion and media-probe dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
       - name: Render selected visual QA clips only
         shell: bash
         run: |
