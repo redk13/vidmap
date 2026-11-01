@@ -1,32 +1,50 @@
-name: render-full
+name: render-full-v9
+
 on:
   workflow_dispatch: {}
+  push:
+    branches: [tokyo-v9]
+    paths:
+      - '.github/workflows/render-full.yml'
+
 jobs:
   render:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        part: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+        part: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: {node-version: 20}
-      - run: npm install --no-audit --no-fund
-      - name: Render part
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install Remotion dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Render video part
         run: |
-          TOTAL=12685; PER=793; P=${{ matrix.part }}
-          START=$((P*PER)); END=$((START+PER-1))
-          if [ $P -eq 15 ]; then END=$((TOTAL-1)); fi
+          TOTAL=12685
+          PER=793
+          P=${{ matrix.part }}
+          START=$((P * PER))
+          END=$((START + PER - 1))
+          if [ "$P" -eq 15 ]; then END=$((TOTAL - 1)); fi
           mkdir -p out
-          npx remotion render src/index.ts full "out/part-$P.mp4" --frames=$START-$END --concurrency=2 --muted
+          npx remotion render src/index.ts full "out/part-$P.mp4" \
+            --frames="$START-$END" --concurrency=2 --muted
       - uses: actions/upload-artifact@v4
         with:
           name: part-${{ matrix.part }}
           path: out/part-${{ matrix.part }}.mp4
+          if-no-files-found: error
+          retention-days: 1
+
   assemble:
     needs: render
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -34,9 +52,19 @@ jobs:
           pattern: part-*
           path: parts
           merge-multiple: true
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-      - run: ls -la parts/ && bash scripts/assemble.sh
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install assembly dependencies
+        run: |
+          python -m pip install --disable-pip-version-check numpy
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - name: Assemble video and code-generated whispered-pad audio
+        run: bash scripts/assemble.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: tokyo-full
-          path: tokyo-full.mp4
+          name: tokyo-v9-full
+          path: tokyo-v9-full.mp4
+          if-no-files-found: error
+          retention-days: 7
