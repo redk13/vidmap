@@ -74,11 +74,11 @@ const Board: React.FC<{children: React.ReactNode}> = ({children}) => (
 
 // ---------- PART A: line chart (fertility collapse) ----------
 const YEARS = [1950, 1955, 1960, 1965, 1970, 1975, 1980, 1985, 1990, 1995, 2000, 2005, 2010, 2015, 2020, 2025];
-type Series = {name: string; color: string; vals: (number | null)[]; end: string};
+type Series = {name: string; color: string; vals: (number | null)[]; end: string; dy?: number};
 const SERIES: Series[] = [
-  {name: 'South Korea', color: '#f0a81f', end: '0.75', vals: [5.05, 6.33, 6.16, 5.63, 4.53, 3.43, 2.82, 1.66, 1.57, 1.63, 1.48, 1.09, 1.23, 1.24, 0.84, 0.75]},
+  {name: 'South Korea', color: '#f0a81f', end: '0.75', dy: 16, vals: [5.05, 6.33, 6.16, 5.63, 4.53, 3.43, 2.82, 1.66, 1.57, 1.63, 1.48, 1.09, 1.23, 1.24, 0.84, 0.75]},
   {name: 'Japan', color: '#2f86ff', end: '1.20', vals: [3.65, 2.37, 2.0, 2.14, 2.13, 1.91, 1.75, 1.76, 1.54, 1.42, 1.36, 1.26, 1.39, 1.45, 1.33, 1.2]},
-  {name: 'Tokyo', color: '#e8273c', end: '0.96', vals: [null, null, null, null, 1.96, 1.63, 1.44, 1.44, 1.23, 1.11, 1.07, 1.0, 1.12, 1.24, 1.12, 0.96]},
+  {name: 'Tokyo', color: '#e8273c', end: '0.96', dy: -6, vals: [null, null, null, null, 1.96, 1.63, 1.44, 1.44, 1.23, 1.11, 1.07, 1.0, 1.12, 1.24, 1.12, 0.96]},
   {name: 'Seoul', color: '#80868d', end: '0.63', vals: [null, null, null, null, null, null, null, null, null, 1.27, 1.26, 0.92, 1.02, 1.0, 0.64, 0.63]},
 ];
 const PA = {x0: 150, x1: 1040, y0: 200, y1: 660, vmax: 6.5};
@@ -136,7 +136,7 @@ const LineChart: React.FC<{f: number}> = ({f}) => {
             <g key={s.name}>
               <path d={d} fill="none" stroke={s.color} strokeWidth={5.5} strokeLinejoin="round" strokeLinecap="round" pathLength={1} strokeDasharray={1} strokeDashoffset={1 - prog} />
               <circle cx={lastP[0]} cy={lastP[1]} r={7} fill={s.color} opacity={lblIn} />
-              <text x={lastP[0] + 14} y={lastP[1] + 7} fontSize={23} fontWeight={900} fill={s.color} fontFamily={MONT} opacity={lblIn}>{s.end}</text>
+              <text x={lastP[0] + 14} y={lastP[1] + 7 + (s.dy ?? 0)} fontSize={23} fontWeight={900} fill={s.color} fontFamily={MONT} opacity={lblIn}>{s.end}</text>
             </g>
           );
         })}
@@ -162,7 +162,7 @@ const RIGHT: SNode[] = [
   {name: 'Other spending', val: 29.5, col: '#6fa83f', rib: 'rgba(111,168,63,0.32)', pct: '25.5%'},
 ];
 const TOTAL = 115.5;
-const SK = {xL: 210, xC: 565, xR: 905, barW: 16, top: 215, span: 440, gap: 13};
+const SK = {xL: 285, xC: 610, xR: 930, barW: 16, top: 215, span: 440, gap: 13};
 const scaleV = SK.span / TOTAL;
 
 const ribbon = (x0: number, y0: number, w0: number, x1: number, y1: number, w1: number) => {
