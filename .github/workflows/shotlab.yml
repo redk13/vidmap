@@ -4,8 +4,8 @@ on:
     branches: [shot-lab]
   workflow_dispatch:
     inputs:
-      comp: {required: false, default: labClip}
-      frames: {required: false, default: 0-239}
+      comp: {required: false, default: labPile}
+      frames: {required: false, default: 0-359}
 jobs:
   render:
     runs-on: ubuntu-latest
@@ -14,6 +14,6 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: 20}
       - run: npm install --no-audit --no-fund
-      - run: npx remotion render src/index.ts ${{ inputs.comp || 'labClip' }} out/shot.mp4 --frames=${{ inputs.frames || '0-239' }} --concurrency=2 --muted
+      - run: npx remotion render src/index.ts ${{ inputs.comp || 'labPile' }} out/shot.mp4 --frames=${{ inputs.frames || '0-359' }} --concurrency=2 --muted
       - uses: actions/upload-artifact@v4
         with: {name: shot, path: out/shot.mp4}
