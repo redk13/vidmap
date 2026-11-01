@@ -28,7 +28,7 @@ Verified on 2026-11-01 before creating the replacement sample.
 - License: **Creative Commons Attribution 2.5** (Wikinews articles published in this period)
 - License: https://creativecommons.org/licenses/by/2.5/
 - Required on-frame attribution: **Wikinews · CC BY 2.5**
-- Highlight: **Nikkei at lowest level since '82**
+- Highlight in the approved animation: **Asian stock markets slide;**
 - Small newspaper columns: shortened/adapted from the licensed article text; adaptation recorded here.
 
 ### 3 — Global Voices
@@ -40,9 +40,11 @@ Verified on 2026-11-01 before creating the replacement sample.
 - License: https://creativecommons.org/licenses/by/3.0/
 - Attribution policy: https://globalvoices.org/about/global-voices-attribution-policy/
 - Required attribution: **Tomomi Sasaki · Global Voices · CC BY 3.0**, plus the original article link preserved here.
-- Highlight: **How Farming in Japan is Changing**
+- Highlight in the approved animation: **Go Farm, Young Man!**
 - Small newspaper columns: shortened/adapted from the licensed article text; adaptation recorded here.
 
 ## Corrected layer rule after the user's clarification
 
-The licensed headlines, dates, yellow highlights and attribution are typeset onto a generated **wall** image. A separate generated gray **paper cover** hides that wall and is cut into independent top and bottom WebP halves. During the shot the cover halves move apart and reveal the text on the wall; the headline is not printed on the tearing paper. Remotion only moves the paper-cover images and does not procedurally create the paper or the wall.
+The licensed headlines, dates and attribution are typeset onto a generated **wall** image. A separate generated gray **paper cover** hides that wall and uses independent top and bottom WebP image halves with real generated torn fibers. During the shot the cover halves move apart and reveal the text on the wall; the headline is not printed on the tearing paper. Remotion only moves the paper-cover images and does not procedurally create the paper or the wall.
+
+In the approved version, the yellow highlights are **not baked into the wall**. Their exact text measurements are exported to `src/tear6-highlights.ts`; Remotion sweeps them onto the wall only after the paper has fully opened, using `#e5ed2f`, `scaleX`, and `mixBlendMode: multiply` so the letters and wall texture remain visible.
