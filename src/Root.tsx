@@ -26,8 +26,10 @@ import {LabCrumple} from './LabCrumple';
 import {LabTear} from './LabTear';
 import {LabTear6} from './LabTear6';
 import {LabTearWall} from './LabTearWall';
+import {LabDataCity} from './LabDataCity';
 export const Root: React.FC = () => (
   <>
+    <Composition id="labDataCity" component={LabDataCity} durationInFrames={360} fps={30} width={1920} height={1080} />
     <Composition id="labTearWall" component={LabTearWall} durationInFrames={360} fps={30} width={1920} height={1080} />
     <Composition id="labTear6" component={LabTear6} durationInFrames={360} fps={30} width={1920} height={1080} />
     <Composition id="labTear" component={LabTear} durationInFrames={360} fps={30} width={1920} height={1080} />

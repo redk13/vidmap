@@ -4,3 +4,4 @@ parts/
 *.m4a
 *.mp4
 !public/yt*.mp4
+!public/lab7-*.mp4
