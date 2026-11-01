@@ -701,7 +701,7 @@ export const ColdOpenV2: React.FC = () => {
 
             {/* -------- SHOT 5 ON-MAP GRAPHIC: COUNCIL DOSSIER CALLOUT (703..1023f) -------- */}
             {shot === 5 && councilOp > 0 && (
-              <g opacity={councilOp} transform="translate(790, 725)">
+              <g opacity={councilOp} transform="translate(855, 725)">
                 <rect
                   x={-330}
                   y={-42}
@@ -749,7 +749,7 @@ export const ColdOpenV2: React.FC = () => {
                 <line
                   x1={0}
                   y1={-4}
-                  x2={M.T[0] - 802}
+                  x2={M.T[0] - 867}
                   y2={M.T[1] - 725}
                   stroke="rgba(244, 63, 94, 0.65)"
                   strokeWidth={0.9}
