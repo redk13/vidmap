@@ -1,8 +1,0 @@
-name: Render Rome 3D Blender Cycles (20-Shard Matrix)
-on:
-  workflow_dispatch:
-jobs:
-  noop:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Manual trigger only"
