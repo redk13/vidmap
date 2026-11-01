@@ -102,13 +102,13 @@ const TearCard: React.FC<{data: CardData; local: number}> = ({data, local}) => {
     const x = (i / n) * W;
     const closedY = H / 2 - 34;
     const y = closedY * (1 - open) + top[i] * (0.35 + open * 0.65);
-    points.push(`${x.toFixed(1)} ${y.toFixed(1)}`);
+    points.push(`${x.toFixed(1)}px ${y.toFixed(1)}px`);
   }
   for (let i = n; i >= 0; i--) {
     const x = (i / n) * W;
     const closedY = H / 2 + 34;
     const y = H - (H - closedY) * (1 - open) + bottom[i] * (0.35 + open * 0.65);
-    points.push(`${x.toFixed(1)} ${y.toFixed(1)}`);
+    points.push(`${x.toFixed(1)}px ${y.toFixed(1)}px`);
   }
   const clipPath = `polygon(${points.join(',')})`;
 
