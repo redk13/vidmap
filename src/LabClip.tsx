@@ -97,7 +97,7 @@ export const LabClip: React.FC = () => {
             <defs>
               <filter id="grain">
                 <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" result="n" />
-                <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.6 0.6 0.6 0 0" result="na" />
+                <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.05 0.05 0.05 0 0" result="na" />
                 <feComposite in="na" in2="SourceGraphic" operator="in" result="grains" />
                 <feBlend in="SourceGraphic" in2="grains" mode="multiply" />
               </filter>
@@ -107,7 +107,7 @@ export const LabClip: React.FC = () => {
                 <stop offset="100%" stopColor="#e9e4d4" />
               </linearGradient>
             </defs>
-            <path d={tornPath(W, H, 4242, 18)} fill="url(#paper)" filter="url(#grain)" opacity={0.98} />
+            <path d={tornPath(W, H, 4242, 18)} fill="url(#paper)" opacity={0.99} />
             {/* subtle fold shading */}
             <rect x={0} y={0} width={W} height={H} fill="url(#paper)" opacity={0} />
             <path d={`M 0 ${H * 0.52} L ${W} ${H * 0.40} L ${W} ${H * 0.46} L 0 ${H * 0.58} Z`} fill="rgba(0,0,0,0.045)" />
