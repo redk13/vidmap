@@ -69,7 +69,7 @@ const Sheet: React.FC<{sim: SimData; tex: THREE.Texture; simIdx: number; opacity
   geo.computeVertexNormals();
   return (
     <mesh geometry={geo} castShadow receiveShadow>
-      <meshStandardMaterial map={tex} bumpMap={tex} bumpScale={0.012} transparent opacity={opacity} alphaTest={0.2} side={THREE.DoubleSide} roughness={0.88} metalness={0} />
+      <meshStandardMaterial map={tex} bumpMap={tex} bumpScale={0.006} transparent opacity={opacity} alphaTest={0.2} side={THREE.DoubleSide} roughness={0.88} metalness={0} />
     </mesh>
   );
 };
@@ -116,7 +116,8 @@ export const LabCrumple: React.FC = () => {
             shadow-camera-bottom={-5}
             shadow-camera-near={1}
             shadow-camera-far={20}
-            shadow-bias={-0.002}
+            shadow-bias={-0.0004}
+            shadow-normalBias={0.05}
           />
           <directionalLight position={[-4, -2, 5]} intensity={0.18} />
           <group position={[0, -0.28, 0]} rotation={[rx, 0, rz]} scale={scaleAll * WORLD}>
