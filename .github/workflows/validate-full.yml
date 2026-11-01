@@ -1,6 +1,10 @@
 name: Validate Tokyo V9 full artifact
 
 on:
+  push:
+    branches: [tokyo-v9]
+    paths:
+      - '.github/workflows/validate-full.yml'
   workflow_dispatch:
     inputs:
       run_id:
