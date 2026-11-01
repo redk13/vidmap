@@ -18,8 +18,10 @@ import {DiveV2} from './DiveV2';
 import {MachineV2} from './MachineV2';
 import {BillV2} from './BillV2';
 import {FinaleV2} from './FinaleV2';
+import {LabBoard} from './LabBoard';
 export const Root: React.FC = () => (
   <>
+    <Composition id="labBoard" component={LabBoard} durationInFrames={480} fps={30} width={1920} height={1080} />
     <Composition id="smoke" component={Smoke} durationInFrames={150} fps={30} width={1920} height={1080} />
     <Composition id="mapTest" component={MapTest} durationInFrames={120} fps={30} width={1920} height={1080} />
     <Composition id="coldOpen" component={ColdOpen} durationInFrames={1023} fps={30} width={1920} height={1080} />
