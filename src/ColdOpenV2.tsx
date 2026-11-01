@@ -656,7 +656,7 @@ export const ColdOpenV2: React.FC = () => {
 
             {/* -------- SHOT 3 ON-MAP GRAPHIC: 46 / 47 PREFECTURES SHRINKING -------- */}
             {shot === 3 && shot3LabelOp > 0 && (
-              <g opacity={shot3LabelOp} transform="translate(748, 695)">
+              <g opacity={shot3LabelOp} transform="translate(920, 695)">
                 <rect x={-380} y={-54} width={388} height={104} rx={5} fill="rgba(8,12,20,0.86)" stroke="rgba(251,113,133,0.48)" strokeWidth={0.9} />
                 <text
                   x={0}
