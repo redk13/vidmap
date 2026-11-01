@@ -90,7 +90,7 @@ const makeNightLights = (
 
 // COLD OPEN V9 — Kings & Generals Nocturnal Satellite + Spotlight + Unidirectional Ken Burns (1023f)
 // Shot structure (hard cuts on VO sentence boundaries, 1 monotonic linear drift per shot, 0 reversals):
-//   Shot 1 [0..185]    (0.00-6.17s):  Nocturnal Japan -> Tokyo spotlight ignites -> -918,253 burns on map + 0:05 council flash
+//   Shot 1 [0..185]    (0.00-6.17s):  Nocturnal Japan -> Tokyo spotlight ignites -> -918,253 appears steadily inside the map callout
 //   Shot 2 [186..310]  (6.20-10.33s): Tighter Honshu lateral drift -> Vox scale ruler (-918,253 vs San Francisco 808,988)
 //   Shot 3 [311..452]  (10.37-15.07s): Archipelago sweep -> 46/47 prefectures darken & turn crimson; Tokyo alone glows gold
 //   Shot 4 [453..702]  (15.10-23.40s): High-res z10 Kanto nocturnal satellite -> Tokyo 23 wards spotlight +0.09% + K&G framed card -> "NOT A LIFEBOAT" crimson twist
@@ -167,24 +167,24 @@ export const ColdOpenV2: React.FC = () => {
   let cx = 855, cy = 780, Z = 2.0;
   if (shot === 1) {
     // Slow push-in onto nocturnal Japan & glowing Tokyo
-    cx = interpolate(f, [0, 185], [840, 882], lin);
-    cy = interpolate(f, [0, 185], [772, 792], lin);
-    Z = interpolate(f, [0, 185], [1.94, 2.12], lin);
+    cx = interpolate(f, [0, 185], [840, 880], lin);
+    cy = interpolate(f, [0, 185], [772, 790], lin);
+    Z = interpolate(f, [0, 185], [1.94, 2.02], lin);
   } else if (shot === 2) {
     // Pure eastward lateral tracking glide along Honshu/Pacific coast
-    cx = interpolate(f, [186, 310], [835, 902], lin);
-    cy = interpolate(f, [186, 310], [852, 840], lin);
-    Z = interpolate(f, [186, 310], [2.46, 2.56], lin);
+    cx = interpolate(f, [186, 310], [880, 900], lin);
+    cy = interpolate(f, [186, 310], [790, 810], lin);
+    Z = interpolate(f, [186, 310], [2.02, 2.06], lin);
   } else if (shot === 3) {
     // Slow northeastward climb up the Japanese archipelago as 46 prefectures turn crimson
-    cx = interpolate(f, [311, 452], [820, 882], lin);
-    cy = interpolate(f, [311, 452], [805, 730], lin);
-    Z = interpolate(f, [311, 452], [1.90, 2.02], lin);
+    cx = interpolate(f, [311, 452], [900, 920], lin);
+    cy = interpolate(f, [311, 452], [810, 755], lin);
+    Z = interpolate(f, [311, 452], [2.06, 2.10], lin);
   } else if (shot === 4) {
     // High-res z10 Kanto plane: slow push-in toward Tokyo's 23 wards
     cx = interpolate(f, [453, 702], [790, 852], lin);
     cy = interpolate(f, [453, 702], [818, 838], lin);
-    Z = interpolate(f, [453, 702], [1.90, 2.18], lin);
+    Z = interpolate(f, [453, 702], [2.10, 2.16], lin);
   } else {
     // Shot 5: slow pull-out over darkened Japan for Black Hole reveal & title
     cx = interpolate(f, [703, 1023], [930, 880], lin);
@@ -198,14 +198,8 @@ export const ColdOpenV2: React.FC = () => {
   // Shot 1 animations
   const tokyoGlow1 = interpolate(f, [6, 38], [0, 1], easeOut);
   const burnIn = interpolate(f, [22, 48], [0, 1], easeOut);
-  const counterVal = Math.round(interpolate(f, [24, 132], [0, 918253], easeOut));
-  const emberFlicker = interpolate(f, [22, 42, 70], [1.35, 1.08, 1.0], clamp);
-  // 0:05 teaser flash (f=152..174 = 5.07s..5.80s)
-  const teaseOp = Math.min(
-    interpolate(f, [152, 156], [0, 1], clamp),
-    interpolate(f, [168, 175], [1, 0], clamp),
-  );
-  const teaseScale = interpolate(f, [152, 158], [1.28, 1.0], easeOut);
+  // Static counter reveal: no rolling digits, glow flicker, pop, or pulse.
+  const emberFlicker = 1.0;
 
   // Shot 2 animations (San Francisco Vox ruler comparison)
   const sfIn = interpolate(f, [190, 212], [0, 1], easeOut);
@@ -236,7 +230,7 @@ export const ColdOpenV2: React.FC = () => {
   const titleOp = interpolate(f, [888, 918], [0, 1], easeOut);
 
   // Year displayed in permanent K&G top-right plaque
-  const yearText = (shot === 1 && teaseOp > 0.3) || (shot === 5 && f < 885) ? '2024' : '2025';
+  const yearText = '2025';
 
   // Prefecture fill helper for z6 Japan map (Shots 1, 2, 3, 5)
   const getPrefFill = (id: number): string => {
@@ -483,9 +477,9 @@ export const ColdOpenV2: React.FC = () => {
                 <circle cx={896} cy={758} r={2.2} fill="#fb7185" />
 
                 <text
-                  x={808}
+                  x={637}
                   y={716}
-                  textAnchor="end"
+                  textAnchor="middle"
                   fontFamily={MONT}
                   fontWeight={900}
                   fontSize={52}
@@ -495,12 +489,12 @@ export const ColdOpenV2: React.FC = () => {
                     filter: `drop-shadow(0 0 ${8 * emberFlicker}px rgba(244, 63, 94, 0.85)) drop-shadow(0 4px 12px rgba(0,0,0,0.95))`,
                   }}
                 >
-                  −{counterVal.toLocaleString('en-US')}
+                  −918,253
                 </text>
                 <text
-                  x={806}
+                  x={637}
                   y={735}
-                  textAnchor="end"
+                  textAnchor="middle"
                   fontFamily={MONT}
                   fontWeight={700}
                   fontSize={10.5}
@@ -510,17 +504,17 @@ export const ColdOpenV2: React.FC = () => {
                   DEATHS MINUS BIRTHS · 2025
                 </text>
                 <line
-                  x1={598}
+                  x1={530}
                   y1={742}
-                  x2={806}
+                  x2={744}
                   y2={742}
                   stroke="rgba(244, 63, 94, 0.45)"
                   strokeWidth={0.9}
                 />
                 <text
-                  x={806}
+                  x={637}
                   y={754}
-                  textAnchor="end"
+                  textAnchor="middle"
                   fontFamily={MONT}
                   fontWeight={600}
                   fontSize={8.2}
@@ -529,59 +523,6 @@ export const ColdOpenV2: React.FC = () => {
                 >
                   JAPANESE NATIONALS · 19TH STRAIGHT YEAR
                 </text>
-              </g>
-            )}
-
-            {/* -------- SHOT 1 @ 0:05: BRIEF DARK DOSSIER STAMP TEASER OVER TOKYO -------- */}
-            {shot === 1 && teaseOp > 0 && (
-              <g
-                opacity={teaseOp}
-                transform={`translate(${M.T[0]}, ${M.T[1]}) scale(${teaseScale}) translate(${-M.T[0]}, ${-M.T[1]})`}
-              >
-                <circle
-                  cx={M.T[0]}
-                  cy={M.T[1]}
-                  r={44}
-                  fill="rgba(159, 18, 57, 0.30)"
-                  stroke="#f43f5e"
-                  strokeWidth={1.4}
-                />
-                <g transform={`translate(${M.T[0] - 128}, ${M.T[1] - 84}) rotate(-5)`}>
-                  <rect
-                    x={0}
-                    y={0}
-                    width={256}
-                    height={52}
-                    rx={3}
-                    fill="rgba(10, 12, 18, 0.94)"
-                    stroke="#f43f5e"
-                    strokeWidth={2}
-                  />
-                  <text
-                    x={128}
-                    y={22}
-                    textAnchor="middle"
-                    fontFamily={MONT}
-                    fontWeight={900}
-                    fontSize={18}
-                    letterSpacing={2.0}
-                    fill="#fb7185"
-                  >
-                    BLACK HOLE
-                  </text>
-                  <text
-                    x={128}
-                    y={41}
-                    textAnchor="middle"
-                    fontFamily={MONT}
-                    fontWeight={700}
-                    fontSize={6.4}
-                    letterSpacing={0.8}
-                    fill="rgba(241, 245, 249, 0.85)"
-                  >
-                    POPULATION STRATEGY COUNCIL · 2024
-                  </text>
-                </g>
               </g>
             )}
 
@@ -716,6 +657,7 @@ export const ColdOpenV2: React.FC = () => {
             {/* -------- SHOT 3 ON-MAP GRAPHIC: 46 / 47 PREFECTURES SHRINKING -------- */}
             {shot === 3 && shot3LabelOp > 0 && (
               <g opacity={shot3LabelOp} transform="translate(748, 695)">
+                <rect x={-380} y={-54} width={388} height={104} rx={5} fill="rgba(8,12,20,0.86)" stroke="rgba(251,113,133,0.48)" strokeWidth={0.9} />
                 <text
                   x={0}
                   y={0}
@@ -948,6 +890,7 @@ export const ColdOpenV2: React.FC = () => {
             {/* +0.09% ONLY GROWING PREFECTURE callout on right side of 23 wards */}
             {tokyoIgnite4 > 0 && (
               <g opacity={tokyoIgnite4 * (1 - 0.35 * twistT)}>
+                <rect x={1020} y={706} width={260} height={94} rx={5} fill="rgba(8,12,20,0.86)" stroke="rgba(253,224,71,0.55)" strokeWidth={0.9} />
                 <line
                   x1={978}
                   y1={792}
@@ -1011,6 +954,7 @@ export const ColdOpenV2: React.FC = () => {
             {/* THE TWIST ON-MAP GRAPHIC (f=620..702): "NOT JAPAN'S LIFEBOAT" */}
             {twistT > 0 && (
               <g opacity={twistT}>
+                <rect x={398} y={798} width={306} height={92} rx={5} fill="rgba(8,12,20,0.88)" stroke="rgba(244,63,94,0.52)" strokeWidth={0.9} />
                 {/* Subtle dashed analytical reticle around Tokyo's 23 wards */}
                 <circle
                   cx={890}

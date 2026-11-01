@@ -1,4 +1,4 @@
-name: Tokyo V9 opening sample — revision 2
+name: Tokyo V9 opening sample — revision 3
 
 on:
   push:
@@ -30,11 +30,11 @@ jobs:
           python scripts/mix_coldopen.py --voice vo/01-coldopen.mp3 --output out/sample-audio.wav --duration 23.4
           ffmpeg -y -v error -i out/video_raw.mp4 -i out/sample-audio.wav \
             -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k -movflags +faststart \
-            out/coldopen-v9-sample.mp4
-          ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_name,width,height,nb_frames -of default=noprint_wrappers=1 out/coldopen-v9-sample.mp4
+            out/coldopen-v9-revision3-sample.mp4
+          ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_name,width,height,nb_frames -of default=noprint_wrappers=1 out/coldopen-v9-revision3-sample.mp4
       - uses: actions/upload-artifact@v4
         with:
-          name: coldopen-v9-revision2-sample
-          path: out/coldopen-v9-sample.mp4
+          name: coldopen-v9-revision3-sample
+          path: out/coldopen-v9-revision3-sample.mp4
           if-no-files-found: error
           retention-days: 7
