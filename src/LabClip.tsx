@@ -1,5 +1,5 @@
 import React from 'react';
-import {AbsoluteFill, interpolate, useCurrentFrame, spring, Easing} from 'remotion';
+import {AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame, spring, Easing} from 'remotion';
 import {loadFont as loadPlayfair} from '@remotion/google-fonts/PlayfairDisplay';
 import {loadFont as loadPT} from '@remotion/google-fonts/PTSerif';
 
@@ -59,7 +59,7 @@ const Mat: React.FC = () => (
 
 // ---------- the clipping ----------
 const W = 1430;
-const H = 500;
+const H = 587;
 
 export const LabClip: React.FC = () => {
   const f = useCurrentFrame();
@@ -85,36 +85,15 @@ export const LabClip: React.FC = () => {
 
         {/* red scrap underneath */}
         <div style={{position: 'absolute', left: 170, top: 120, width: 760, height: 420, opacity: interpolate(sRed, [0, 0.2], [0, 1], {extrapolateRight: 'clamp'}), transform: `translate(${(1 - sRed) * -160}px, ${(1 - sRed) * -90}px) rotate(${interpolate(sRed, [0, 1], [-24, -13])}deg)`, filter: 'drop-shadow(0 14px 18px rgba(0,0,0,0.38))'}}>
-          <svg width={800} height={470} viewBox="-20 -20 800 470">
-            <path d={tornPath(740, 400, 77, 16)} fill="#ef4458" />
-            <path d={tornPath(700, 170, 913, 14)} fill="#f6f2ea" transform="translate(16,210)" />
-          </svg>
+          <Img src={staticFile('clip-red.png')} style={{width: 780, height: 370}} />
         </div>
 
         {/* newspaper clipping */}
         <div style={{position: 'absolute', left: 245, top: 230, width: W, height: H, opacity: clipOp, transform: `scale(${clipScale}) rotate(${clipRot}deg)`, transformOrigin: '50% 40%', filter: `drop-shadow(0 ${shad}px ${shad * 1.1}px rgba(0,0,0,0.5))`}}>
-          <svg width={W + 60} height={H + 60} viewBox="-30 -30 1490 560" style={{position: 'absolute', left: -30, top: -30}}>
-            <defs>
-              <filter id="grain">
-                <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" result="n" />
-                <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.05 0.05 0.05 0 0" result="na" />
-                <feComposite in="na" in2="SourceGraphic" operator="in" result="grains" />
-                <feBlend in="SourceGraphic" in2="grains" mode="multiply" />
-              </filter>
-              <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#faf7ef" />
-                <stop offset="55%" stopColor="#f3efe3" />
-                <stop offset="100%" stopColor="#e9e4d4" />
-              </linearGradient>
-            </defs>
-            <path d={tornPath(W, H, 4242, 18)} fill="url(#paper)" opacity={0.99} />
-            {/* subtle fold shading */}
-            <rect x={0} y={0} width={W} height={H} fill="url(#paper)" opacity={0} />
-            <path d={`M 0 ${H * 0.52} L ${W} ${H * 0.40} L ${W} ${H * 0.46} L 0 ${H * 0.58} Z`} fill="rgba(0,0,0,0.045)" />
-          </svg>
+          <Img src={staticFile('clip-paper.png')} style={{position: 'absolute', left: 0, top: 0, width: W, height: H}} />
 
           {/* printed content */}
-          <div style={{position: 'absolute', inset: 0, padding: '34px 70px 0 70px', textAlign: 'center'}}>
+          <div style={{position: 'absolute', inset: 0, padding: '52px 100px 0 100px', textAlign: 'center', mixBlendMode: 'multiply'}}>
             {/* masthead */}
             <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 14}}>
               <div style={{fontFamily: PLAY, fontWeight: 900, fontSize: 34, color: '#141414', border: '3px solid #141414', lineHeight: 1, padding: '2px 7px'}}>TL</div>
