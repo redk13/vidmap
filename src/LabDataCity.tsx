@@ -6,9 +6,9 @@ const {fontFamily: MONT} = loadFont();
 const clamp = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'} as const;
 
 const DATA = [
-  {value: '0.96', label: 'TOKYO FERTILITY · 2025', start: 90, x: 170, y: 240, vx: 90, vy: -110, scale: 1.00, rx: 18, ry: -24, rz: -12, blur: 0.0},
-  {value: '+65,219', label: 'TOKYO NET MIGRATION · 2025', start: 115, x: 1030, y: 200, vx: -60, vy: -80, scale: 0.88, rx: 22, ry: -28, rz: -12, blur: 0.5},
-  {value: '898K', label: 'TOKYO VACANT HOMES · 2023', start: 140, x: 1290, y: 430, vx: -100, vy: -120, scale: 1.06, rx: 17, ry: -22, rz: -14, blur: 0.0},
+  {value: '0.96', label: 'TOKYO FERTILITY · 2025', start: 90, x: 170, y: 320, vx: 90, vy: -110, scale: 1.00, rx: 18, ry: -24, rz: -12, blur: 0.0},
+  {value: '+65,219', label: 'TOKYO NET MIGRATION · 2025', start: 115, x: 1030, y: 300, vx: -60, vy: -80, scale: 0.88, rx: 22, ry: -28, rz: -12, blur: 0.5},
+  {value: '898K', label: 'TOKYO VACANT HOMES · 2023', start: 140, x: 1290, y: 520, vx: -100, vy: -120, scale: 1.06, rx: 17, ry: -22, rz: -14, blur: 0.0},
   {value: '31.0', label: 'FIRST-TIME MOTHER AGE · JAPAN · 2025', start: 165, x: 330, y: 660, vx: 80, vy: -150, scale: 0.90, rx: 24, ry: -30, rz: -12, blur: 0.4},
   {value: '1.3', label: 'WORKERS PER SENIOR · 2070 SCENARIO', start: 190, x: 870, y: 740, vx: -40, vy: -150, scale: 1.00, rx: 18, ry: -24, rz: -13, blur: 0.0, projection: true},
   {value: '87M', label: 'JAPAN POPULATION · 2070 SCENARIO', start: 215, x: 1390, y: 750, vx: -90, vy: -170, scale: 0.84, rx: 26, ry: -32, rz: -14, blur: 0.7, projection: true},
@@ -72,7 +72,7 @@ const TitleMark: React.FC = () => {
   const exit = interpolate(frame, [65, 90], [0, 1], {...clamp, easing: Easing.bezier(0.4, 0, 0.7, 0.2)});
   const scale = (0.65 + 0.35 * enter) * (1 + 0.22 * exit);
   const x = 400 - 210 * exit;
-  const y = 145 + 75 * (1 - enter) - 105 * exit;
+  const y = 250 + 75 * (1 - enter) + 40 * exit;
 
   return (
     <div
