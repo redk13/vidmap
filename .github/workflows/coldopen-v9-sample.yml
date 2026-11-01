@@ -1,4 +1,4 @@
-name: Tokyo V9 opening sample
+name: Tokyo V9 opening sample — revision 2
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
           ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_name,width,height,nb_frames -of default=noprint_wrappers=1 out/coldopen-v9-sample.mp4
       - uses: actions/upload-artifact@v4
         with:
-          name: coldopen-v9-sample
+          name: coldopen-v9-revision2-sample
           path: out/coldopen-v9-sample.mp4
           if-no-files-found: error
           retention-days: 7

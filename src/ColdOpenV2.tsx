@@ -247,22 +247,22 @@ export const ColdOpenV2: React.FC = () => {
       return `rgba(251, 191, 36, ${0.62 * (shot === 1 ? tokyoGlow1 : 1)})`;
     }
     if (shot === 1) {
-      return 'rgba(10, 18, 32, 0.34)';
+      return 'rgba(10, 18, 32, 0.18)';
     }
     if (shot === 2) {
-      return 'rgba(136, 24, 40, 0.34)';
+      return 'rgba(136, 24, 40, 0.20)';
     }
     if (shot === 3) {
       const rank = M.sweepRank.get(id) ?? 46;
       const lit = interpolate(sweepProgress, [rank - 1.2, rank + 0.4], [0, 1], clamp);
-      const baseA = 0.34 * (1 - lit);
-      const redA = (id % 2 === 0 ? 0.64 : 0.56) * lit;
+      const baseA = 0.22 * (1 - lit);
+      const redA = (id % 2 === 0 ? 0.48 : 0.40) * lit;
       return lit > 0.02
         ? `rgba(185, 28, 48, ${redA.toFixed(3)})`
         : `rgba(10, 18, 32, ${baseA.toFixed(3)})`;
     }
     // Shot 5
-    return 'rgba(150, 24, 42, 0.50)';
+    return 'rgba(150, 24, 42, 0.32)';
   };
 
   const getPrefStroke = (id: number): string => {
@@ -271,8 +271,8 @@ export const ColdOpenV2: React.FC = () => {
       const rank = M.sweepRank.get(id) ?? 46;
       if (sweepProgress >= rank) return 'rgba(255, 145, 156, 0.52)';
     }
-    if (shot === 5) return 'rgba(255, 135, 148, 0.42)';
-    return 'rgba(205, 222, 244, 0.34)';
+    if (shot === 5) return 'rgba(255, 165, 176, 0.62)';
+    return 'rgba(205, 222, 244, 0.58)';
   };
 
   return (
@@ -287,7 +287,7 @@ export const ColdOpenV2: React.FC = () => {
           width: 2160,
           height: 1320,
           objectFit: 'cover',
-          filter: 'blur(14px) brightness(0.46) saturate(0.42) hue-rotate(188deg)',
+          filter: 'blur(14px) brightness(0.62) saturate(0.55)',
         }}
       />
 
@@ -313,7 +313,7 @@ export const ColdOpenV2: React.FC = () => {
               top: 0,
               width: SAT_W,
               height: SAT_H,
-              filter: 'brightness(0.58) contrast(1.16) saturate(0.36) hue-rotate(186deg)',
+              filter: 'brightness(0.90) contrast(1.08) saturate(0.68)',
             }}
           />
           {/* Subtle cool night-blue atmospheric grade */}
@@ -324,7 +324,7 @@ export const ColdOpenV2: React.FC = () => {
               top: 0,
               width: SAT_W,
               height: SAT_H,
-              background: 'rgba(6, 14, 28, 0.22)',
+              background: 'rgba(6, 14, 28, 0.08)',
             }}
           />
 
@@ -450,6 +450,17 @@ export const ColdOpenV2: React.FC = () => {
             {/* -------- SHOT 1 ON-MAP GRAPHIC: -918,253 BURNING ON THE MAP -------- */}
             {shot === 1 && burnIn > 0 && (
               <g opacity={burnIn}>
+                {/* One bounded map callout: every counter line stays inside this plate. */}
+                <rect
+                  x={430}
+                  y={650}
+                  width={415}
+                  height={120}
+                  rx={5}
+                  fill="rgba(8, 12, 20, 0.84)"
+                  stroke="rgba(251, 113, 133, 0.58)"
+                  strokeWidth={1}
+                />
                 {/* Subtle ember backlight directly on the Sea of Japan */}
                 <ellipse
                   cx={710}
@@ -535,37 +546,37 @@ export const ColdOpenV2: React.FC = () => {
                   stroke="#f43f5e"
                   strokeWidth={1.4}
                 />
-                <g transform={`translate(${M.T[0] - 118}, ${M.T[1] - 84}) rotate(-5)`}>
+                <g transform={`translate(${M.T[0] - 128}, ${M.T[1] - 84}) rotate(-5)`}>
                   <rect
                     x={0}
                     y={0}
-                    width={176}
-                    height={46}
+                    width={256}
+                    height={52}
                     rx={3}
                     fill="rgba(10, 12, 18, 0.94)"
                     stroke="#f43f5e"
                     strokeWidth={2}
                   />
                   <text
-                    x={88}
-                    y={24}
+                    x={128}
+                    y={22}
                     textAnchor="middle"
                     fontFamily={MONT}
                     fontWeight={900}
-                    fontSize={20}
-                    letterSpacing={3.5}
+                    fontSize={18}
+                    letterSpacing={2.0}
                     fill="#fb7185"
                   >
                     BLACK HOLE
                   </text>
                   <text
-                    x={88}
-                    y={38}
+                    x={128}
+                    y={41}
                     textAnchor="middle"
                     fontFamily={MONT}
                     fontWeight={700}
-                    fontSize={7.2}
-                    letterSpacing={1.8}
+                    fontSize={6.4}
+                    letterSpacing={0.8}
                     fill="rgba(241, 245, 249, 0.85)"
                   >
                     POPULATION STRATEGY COUNCIL · 2024
@@ -829,7 +840,7 @@ export const ColdOpenV2: React.FC = () => {
               top: 0,
               width: SAT2_W,
               height: SAT2_H,
-              filter: 'brightness(0.55) contrast(1.18) saturate(0.34) hue-rotate(186deg)',
+              filter: 'brightness(0.88) contrast(1.08) saturate(0.66)',
             }}
           />
           <div
@@ -839,7 +850,7 @@ export const ColdOpenV2: React.FC = () => {
               top: 0,
               width: SAT2_W,
               height: SAT2_H,
-              background: 'rgba(6, 13, 26, 0.22)',
+              background: 'rgba(6, 13, 26, 0.08)',
             }}
           />
 
@@ -1126,7 +1137,7 @@ export const ColdOpenV2: React.FC = () => {
         style={{
           pointerEvents: 'none',
           background:
-            'radial-gradient(ellipse at 52% 50%, rgba(4,7,13,0) 52%, rgba(3,6,12,0.58) 100%)',
+            'radial-gradient(ellipse at 52% 50%, rgba(4,7,13,0) 68%, rgba(3,6,12,0.24) 100%)',
         }}
       />
 
