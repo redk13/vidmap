@@ -78,23 +78,26 @@ export const LabCrumple: React.FC = () => {
   }, [handle]);
 
   const io = Easing.inOut(Easing.cubic);
-  // openness 0 = wad, 1 = flat (sim played in reverse to open)
-  const oPaper = interpolate(frame, [40, 148, 258, 326], [0, 1, 1, 0], {easing: io, extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-  const oStrip = interpolate(frame, [56, 160, 248, 316], [0, 1, 1, 0], {easing: io, extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  // FAST open/close in place, like hands opening then re-crumpling the paper.
+  // appear f0-5 (wad pops in) | open f6-32 | hold | close f196-222 (exact mirror) | vanish f224-234
+  const oPaper = interpolate(frame, [6, 32, 196, 222], [0, 1, 1, 0], {easing: io, extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const oStrip = interpolate(frame, [12, 38, 190, 216], [0, 1, 1, 0], {easing: io, extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   const simPaper = (1 - oPaper) * SIM_RANGE;
   const simStrip = (1 - oStrip) * SIM_RANGE;
 
-  const pin = interpolate(frame, [0, 52], [0, 1], {easing: Easing.out(Easing.cubic), extrapolateRight: 'clamp'});
-  const pout = interpolate(frame, [310, 358], [0, 1], {easing: Easing.in(Easing.cubic), extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-  const gx = -7.6 * (1 - pin) + 8.2 * pout;
-  const gy = 3.4 * (1 - pin) - 3.1 * pout;
-  const rin = interpolate(frame, [0, 140], [1, 0], {easing: Easing.out(Easing.cubic), extrapolateRight: 'clamp'});
-  const rout = interpolate(frame, [300, 360], [0, 1], {easing: Easing.in(Easing.quad), extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-  const rx = 2.0 * rin - 1.5 * rout;
-  const ry = -2.3 * rin + 1.9 * rout;
-  const rz = 1.6 * rin - 1.1 * rout;
-  const push = interpolate(frame, [130, 280], [1, 1.07], {easing: io, extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-  const bgScale = interpolate(frame, [0, 360], [1.06, 1.15]);
+  // pop in / pop out, in place (no floating across the screen)
+  const aIn = interpolate(frame, [0, 6], [0, 1], {easing: Easing.out(Easing.quad), extrapolateRight: 'clamp'});
+  const aOut = interpolate(frame, [224, 234], [1, 0], {easing: Easing.in(Easing.quad), extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const appear = Math.min(aIn, aOut);
+  const gx = 0;
+  const gy = 0.08 * (1 - aIn); // tiny settle
+  // small settle twist while opening, mirrored while closing — no tumbling flight
+  const rz = 0.22 * (1 - oPaper) * (frame < 120 ? 1 : -1);
+  const rx = 0.1 * (1 - oPaper);
+  const ry = 0;
+  const push = interpolate(frame, [40, 200], [1, 1.06], {easing: io, extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const scaleAll = push * (0.85 + 0.15 * appear);
+  const bgScale = interpolate(frame, [0, 240], [1.06, 1.13]);
 
   return (
     <AbsoluteFill style={{background: '#0c0e10', overflow: 'hidden'}}>
@@ -105,7 +108,7 @@ export const LabCrumple: React.FC = () => {
           <ambientLight intensity={0.8} />
           <directionalLight position={[3, 5, 6]} intensity={1.0} />
           <directionalLight position={[-4, -2, 5]} intensity={0.22} />
-          <group position={[gx, gy, 0]} rotation={[rx, ry, rz]} scale={push}>
+          <group position={[gx, gy, 0]} rotation={[rx, ry, rz]} scale={scaleAll}>
             <Sheet sim={sim} tex={textures.paper} simIdx={simPaper} scale={4.86} pos={[0.1, -0.5, 0]} rotZ={-0.012} />
             <Sheet sim={sim} tex={textures.strip} simIdx={simStrip} scale={3.53} pos={[-1.2, 1.08, 0.3]} rotZ={0.03} flip />
           </group>
