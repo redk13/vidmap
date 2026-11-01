@@ -19,14 +19,15 @@ type Strip = {
 const STRIPS: Strip[] = [
   {img: 'strip2.png', x: 540, y: 95, w: 1480, h: 235, rot: 3.5, delay: 8, fs: 50,
    source: 'THE JAPAN TIMES', headline: "Japan's 2025 census reflects steepest fall in population on record", bannerLeft: 460},
-  {img: 'strip3.png', x: -40, y: 395, w: 1300, h: 230, rot: 2.2, delay: 98, fs: 46,
+  {img: 'strip1.png', x: 185, y: 205, w: 1530, h: 300, rot: -2.6, delay: 53, fs: 64, hero: true,
+   source: 'The Asahi Shimbun', headline: "Japan's plunging population defies forecasts with new low in 2025"},
+  {img: 'strip3.png', x: -40, y: 432, w: 1300, h: 230, rot: 2.2, delay: 98, fs: 46,
    source: 'THE JAPAN NEWS', headline: "Japan's Birth Rate Remains Stubbornly Low Despite Efforts", bannerLeft: 420},
-  {img: 'strip1.png', flip: true, x: 600, y: 445, w: 1400, h: 235, rot: -4, delay: 143, fs: 46,
+  {img: 'strip1.png', flip: true, x: 600, y: 472, w: 1400, h: 235, rot: -4, delay: 143, fs: 46,
    source: 'THE ASAHI SHIMBUN', headline: "Japan's births mark record low in 2024, plummet below 700,000", bannerLeft: 430},
   {img: 'strip2.png', flip: true, x: 380, y: 700, w: 1520, h: 245, rot: 2.8, delay: 188, fs: 50,
    source: 'THE JAPAN TIMES', headline: "Japan's fertility rate hits record low despite government push", bannerLeft: 480},
-  {img: 'strip1.png', x: 185, y: 205, w: 1530, h: 300, rot: -2.6, delay: 53, fs: 64, hero: true,
-   source: 'The Asahi Shimbun', headline: "Japan's plunging population defies forecasts with new low in 2025"},
+
 ];
 
 const StripCard: React.FC<{s: Strip; f: number}> = ({s, f}) => {
