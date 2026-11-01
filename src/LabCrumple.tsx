@@ -3,45 +3,61 @@ import {AbsoluteFill, Img, staticFile, useCurrentFrame, delayRender, continueRen
 import {ThreeCanvas} from '@remotion/three';
 import * as THREE from 'three';
 
-// Professional pipeline: Blender cloth-sim crumple (central attractor + turbulence,
-// self-collision), baked vertex animation played back in three.js. Un-crumple = reversed sim.
-const SIM_RANGE = 30; // sim frames 0..30 = flat -> wad
+// Blender JOINT cloth sim: paper + strip crumple INTO EACH OTHER as one wad
+// (cloth-cloth collision), baked vertex animation. Open = reversed sim.
+const SIM_RANGE = 28;
+const WORLD = 4.6;
 
 type SimData = {pos: Float32Array; faces: Uint32Array; nV: number; frames: number};
 
-const useSim = (): SimData | null => {
-  const [data, setData] = useState<SimData | null>(null);
-  const [handle] = useState(() => delayRender('sim-data'));
+const useAssets = () => {
+  const [out, setOut] = useState<null | {s1: SimData; s2: SimData; t1: THREE.Texture; t2: THREE.Texture}>(null);
+  const [handle] = useState(() => delayRender('crumple-assets'));
   useEffect(() => {
+    const l = new THREE.TextureLoader();
     Promise.all([
-      fetch(staticFile('crump.bin')).then((r) => r.arrayBuffer()),
-      fetch(staticFile('crump-meta.json')).then((r) => r.json()),
-    ]).then(([buf, meta]) => {
-      setData({pos: new Float32Array(buf), faces: Uint32Array.from(meta.faces), nV: meta.nV, frames: meta.frames});
+      fetch(staticFile('crump1.bin')).then((r) => r.arrayBuffer()),
+      fetch(staticFile('crump1-meta.json')).then((r) => r.json()),
+      fetch(staticFile('crump2.bin')).then((r) => r.arrayBuffer()),
+      fetch(staticFile('crump2-meta.json')).then((r) => r.json()),
+      l.loadAsync(staticFile('crump-paper.png')),
+      l.loadAsync(staticFile('crump-strip.png')),
+    ]).then(([b1, m1, b2, m2, t1, t2]) => {
+      [t1, t2].forEach((t) => {
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.anisotropy = 8;
+      });
+      setOut({
+        s1: {pos: new Float32Array(b1), faces: Uint32Array.from(m1.faces), nV: m1.nV, frames: m1.frames},
+        s2: {pos: new Float32Array(b2), faces: Uint32Array.from(m2.faces), nV: m2.nV, frames: m2.frames},
+        t1, t2,
+      });
       continueRender(handle);
     });
   }, [handle]);
-  return data;
+  return out;
 };
 
-const Sheet: React.FC<{
-  sim: SimData; tex: THREE.Texture; simIdx: number; scale: number;
-  pos: [number, number, number]; rotZ?: number; flip?: boolean;
-}> = ({sim, tex, simIdx, scale, pos, rotZ = 0, flip}) => {
+const Sheet: React.FC<{sim: SimData; tex: THREE.Texture; simIdx: number; opacity: number}> = ({sim, tex, simIdx, opacity}) => {
   const geo = useMemo(() => {
     const g = new THREE.BufferGeometry();
     g.setIndex(new THREE.BufferAttribute(sim.faces, 1));
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(sim.nV * 3), 3));
+    // UVs from flat frame 0 bbox
+    let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+    for (let i = 0; i < sim.nV; i++) {
+      const x = sim.pos[i * 3], y = sim.pos[i * 3 + 1];
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
     const uv = new Float32Array(sim.nV * 2);
     for (let i = 0; i < sim.nV; i++) {
-      const x = sim.pos[i * 3], y = sim.pos[i * 3 + 1]; // frame 0 = flat
-      uv[i * 2] = x / 1.12 + 0.5;
-      uv[i * 2 + 1] = y / 0.5 + 0.5;
+      uv[i * 2] = (sim.pos[i * 3] - minX) / (maxX - minX);
+      uv[i * 2 + 1] = (sim.pos[i * 3 + 1] - minY) / (maxY - minY);
     }
     g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
     return g;
   }, [sim]);
-  // lerp between baked sim frames
   const s = Math.min(Math.max(simIdx, 0), sim.frames - 1.001);
   const i0 = Math.floor(s), t = s - i0;
   const attr = geo.attributes.position as THREE.BufferAttribute;
@@ -51,69 +67,66 @@ const Sheet: React.FC<{
   for (let i = 0; i < arr.length; i++) arr[i] = a[i] + (b[i] - a[i]) * t;
   attr.needsUpdate = true;
   geo.computeVertexNormals();
-  if (flip) {
-    tex.center.set(0.5, 0.5);
-    tex.rotation = Math.PI;
-  }
   return (
-    <mesh geometry={geo} position={pos} rotation={[0, 0, rotZ + (flip ? Math.PI : 0)]} scale={scale}>
-      <meshStandardMaterial map={tex} transparent alphaTest={0.25} side={THREE.DoubleSide} roughness={0.9} metalness={0} />
+    <mesh geometry={geo} castShadow receiveShadow>
+      <meshStandardMaterial map={tex} bumpMap={tex} bumpScale={0.012} transparent opacity={opacity} alphaTest={0.2} side={THREE.DoubleSide} roughness={0.88} metalness={0} />
     </mesh>
   );
 };
 
+const GRAIN =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="420" height="420"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7"/><feColorMatrix type="saturate" values="0"/></filter><rect width="420" height="420" filter="url(#n)" opacity="0.5"/></svg>`
+  );
+
 export const LabCrumple: React.FC = () => {
   const frame = useCurrentFrame();
-  const sim = useSim();
-  const [textures, setTextures] = useState<null | {paper: THREE.Texture; strip: THREE.Texture}>(null);
-  const [handle] = useState(() => delayRender('crumple-textures'));
-  useEffect(() => {
-    const l = new THREE.TextureLoader();
-    Promise.all([l.loadAsync(staticFile('crump-paper.png')), l.loadAsync(staticFile('crump-strip.png'))]).then(([p, st]) => {
-      p.colorSpace = THREE.SRGBColorSpace; st.colorSpace = THREE.SRGBColorSpace;
-      p.anisotropy = 8; st.anisotropy = 8;
-      setTextures({paper: p, strip: st});
-      continueRender(handle);
-    });
-  }, [handle]);
-
+  const assets = useAssets();
   const io = Easing.inOut(Easing.cubic);
-  // FAST open/close in place, like hands opening then re-crumpling the paper.
-  // appear f0-5 (wad pops in) | open f6-32 | hold | close f196-222 (exact mirror) | vanish f224-234
-  const oPaper = interpolate(frame, [6, 32, 196, 222], [0, 1, 1, 0], {easing: io, extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-  const oStrip = interpolate(frame, [12, 38, 190, 216], [0, 1, 1, 0], {easing: io, extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-  const simPaper = (1 - oPaper) * SIM_RANGE;
-  const simStrip = (1 - oStrip) * SIM_RANGE;
 
-  // pop in / pop out, in place (no floating across the screen)
+  // appear from nothing f0-6 | fast open f8-34 | hold | fast close f196-222 | vanish f224-232
+  const o = interpolate(frame, [8, 34, 196, 222], [0, 1, 1, 0], {easing: io, extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const simIdx = (1 - o) * SIM_RANGE;
   const aIn = interpolate(frame, [0, 6], [0, 1], {easing: Easing.out(Easing.quad), extrapolateRight: 'clamp'});
-  const aOut = interpolate(frame, [224, 234], [1, 0], {easing: Easing.in(Easing.quad), extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const aOut = interpolate(frame, [224, 232], [1, 0], {easing: Easing.in(Easing.quad), extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   const appear = Math.min(aIn, aOut);
-  const gx = 0;
-  const gy = 0.08 * (1 - aIn); // tiny settle
-  // small settle twist while opening, mirrored while closing — no tumbling flight
-  const rz = 0.22 * (1 - oPaper) * (frame < 120 ? 1 : -1);
-  const rx = 0.1 * (1 - oPaper);
-  const ry = 0;
+  // small settle twist while opening, mirrored while closing
+  const rz = 0.2 * (1 - o) * (frame < 120 ? 1 : -1);
+  const rx = 0.09 * (1 - o);
   const push = interpolate(frame, [40, 200], [1, 1.06], {easing: io, extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
-  const scaleAll = push * (0.85 + 0.15 * appear);
+  const scaleAll = push * (0.88 + 0.12 * appear);
   const bgScale = interpolate(frame, [0, 240], [1.06, 1.13]);
 
   return (
     <AbsoluteFill style={{background: '#0c0e10', overflow: 'hidden'}}>
       <Img src={staticFile('city-bg.jpg')} style={{position: 'absolute', width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${bgScale})`, filter: 'blur(13px) brightness(0.72) saturate(0.8)'}} />
-      <AbsoluteFill style={{background: 'radial-gradient(ellipse at center, rgba(0,0,0,0) 48%, rgba(0,0,0,0.45) 100%)'}} />
-      {textures && sim ? (
-        <ThreeCanvas width={1920} height={1080} camera={{fov: 33, position: [0, 0, 8]}}>
-          <ambientLight intensity={0.8} />
-          <directionalLight position={[3, 5, 6]} intensity={1.0} />
-          <directionalLight position={[-4, -2, 5]} intensity={0.22} />
-          <group position={[gx, gy, 0]} rotation={[rx, ry, rz]} scale={scaleAll}>
-            <Sheet sim={sim} tex={textures.paper} simIdx={simPaper} scale={4.86} pos={[0.1, -0.5, 0]} rotZ={-0.012} />
-            <Sheet sim={sim} tex={textures.strip} simIdx={simStrip} scale={3.53} pos={[-1.2, 1.08, 0.3]} rotZ={0.03} flip />
+      {assets ? (
+        <ThreeCanvas shadows width={1920} height={1080} camera={{fov: 33, position: [0, 0, 8]}}>
+          <ambientLight intensity={0.55} />
+          <directionalLight
+            position={[3.5, 5, 6]}
+            intensity={1.35}
+            castShadow
+            shadow-mapSize-width={1024}
+            shadow-mapSize-height={1024}
+            shadow-camera-left={-5}
+            shadow-camera-right={5}
+            shadow-camera-top={5}
+            shadow-camera-bottom={-5}
+            shadow-camera-near={1}
+            shadow-camera-far={20}
+            shadow-bias={-0.002}
+          />
+          <directionalLight position={[-4, -2, 5]} intensity={0.18} />
+          <group position={[0, -0.28, 0]} rotation={[rx, 0, rz]} scale={scaleAll * WORLD}>
+            <Sheet sim={assets.s1} tex={assets.t1} simIdx={simIdx} opacity={appear} />
+            <Sheet sim={assets.s2} tex={assets.t2} simIdx={simIdx} opacity={appear} />
           </group>
         </ThreeCanvas>
       ) : null}
+      <AbsoluteFill style={{backgroundImage: `url("${GRAIN}")`, opacity: 0.05, mixBlendMode: 'overlay', pointerEvents: 'none'}} />
+      <AbsoluteFill style={{background: 'radial-gradient(ellipse at center, rgba(0,0,0,0) 48%, rgba(0,0,0,0.45) 100%)', pointerEvents: 'none'}} />
     </AbsoluteFill>
   );
 };
