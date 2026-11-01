@@ -1,5 +1,6 @@
 node_modules/
 out/
 parts/
-*.mp4
 *.m4a
+*.mp4
+!public/yt*.mp4
