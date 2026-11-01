@@ -23,7 +23,7 @@ const HalfClipping: React.FC<{top: string; bottom: string; full: string; local: 
   const travel = 190 * (1 - open);
   // The two real halves perform the tear. Once they meet, the identical uncut
   // raster takes over so no shadow or compression seam remains during the hold.
-  const merged = interpolate(open, [0.86, 1], [0, 1], clamp);
+  const merged = open >= 0.999 ? 1 : 0;
 
   return (
     <div style={{position: 'absolute', left: (1920 - W) / 2, top: (1080 - H) / 2, width: W, height: H, opacity}}>
