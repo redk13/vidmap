@@ -21,8 +21,10 @@ import {FinaleV2} from './FinaleV2';
 import {LabBoard} from './LabBoard';
 import {LabClip} from './LabClip';
 import {LabPile} from './LabPile';
+import {LabGrid} from './LabGrid';
 export const Root: React.FC = () => (
   <>
+    <Composition id="labGrid" component={LabGrid} durationInFrames={360} fps={30} width={1920} height={1080} />
     <Composition id="labPile" component={LabPile} durationInFrames={360} fps={30} width={1920} height={1080} />
     <Composition id="labClip" component={LabClip} durationInFrames={240} fps={30} width={1920} height={1080} />
     <Composition id="labBoard" component={LabBoard} durationInFrames={480} fps={30} width={1920} height={1080} />
