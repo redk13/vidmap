@@ -65,12 +65,12 @@ export const TimeSqueezeV2: React.FC = () => {
   const t = (a: number, b: number) => interpolate(f, [a, b], [0, 1], clamp);
   const puppet = interpolate(f, [120, 142], [0, 1], clamp);
   const puppetPop = interpolate(f, [120, 142], [1.6, 1], {...clamp, easing: Easing.out(Easing.back(1.6))});
-  const bob = Math.sin(f / 21) * 6;
+  const bob = 0;
 
   return (
     <AbsoluteFill style={{backgroundColor: '#05080d', fontFamily: MONT, overflow: 'hidden'}}>
       <Img src={staticFile('japan-sat.jpg')} style={{position: 'absolute', left: -120, top: -180,
-        width: 2160, height: 2160, objectFit: 'cover', filter: 'blur(12px) brightness(0.5)'}}/>
+        width: 2160, height: 2160, objectFit: 'cover', filter: 'blur(4px) brightness(0.72) saturate(1.08)'}}/>
             <div style={{position: 'absolute', left: 960 - SAT_W / 2 + panX, top: 540 - SAT_H / 2 - 40,
         width: SAT_W, height: SAT_H, opacity: fadeIn,
         transform: `translate(${(cox - 960) * (1 - cs)}px, ${(coy - 438.6) * (1 - cs)}px) scale(${cs}) perspective(1600px) rotateX(35deg) scale(${zoomS})`, transformOrigin: '50% 46%'}}>
@@ -149,7 +149,7 @@ export const TimeSqueezeV2: React.FC = () => {
       {f > 560 && (
         <Img src={staticFile('photos/office-night.png')} style={{position: 'absolute', right: 28, top: 620, width: 360,
           opacity: interpolate(f, [560, 578], [0, 1], clamp),
-          transform: `scale(${interpolate(f, [560, 582], [1.5, 1], clamp)}) rotate(${2 + 0.8 * Math.sin(f / 39)}deg) translateY(${5 * Math.sin(f / 28)}px)`, transformOrigin: 'right top',
+          transform: `scale(${interpolate(f, [560, 582], [1.5, 1], clamp)}) rotate(2deg)`, transformOrigin: 'right top',
           filter: 'drop-shadow(0 16px 32px rgba(0,0,0,0.65))'}}/>
       )}
       {f > 470 && (

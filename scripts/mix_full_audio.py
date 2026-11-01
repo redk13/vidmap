@@ -22,7 +22,9 @@ VO_FILES = [
 
 def decode_mono(path: str) -> np.ndarray:
     raw = subprocess.check_output([
-        'ffmpeg', '-v', 'error', '-i', path, '-ac', '1', '-ar', str(SR), '-f', 's16le', '-'
+        'ffmpeg', '-v', 'error', '-i', path, '-af',
+        'highpass=f=70,lowpass=f=14500,acompressor=threshold=0.18:ratio=1.35:attack=20:release=180:makeup=1.02,alimiter=limit=0.94',
+        '-ac', '1', '-ar', str(SR), '-f', 's16le', '-'
     ])
     return np.frombuffer(raw, np.int16).astype(np.float64) / 32768.0
 
@@ -46,13 +48,20 @@ def main() -> None:
 
     for path, frame in zip(VO_FILES, VO_OFFSETS):
         voice = decode_mono(path)
+        # Gentle identical edge fades avoid clicks and make VO handoffs less abrupt.
+        fade_in = min(int(0.035 * SR), len(voice) // 4)
+        fade_out = min(int(0.075 * SR), len(voice) // 4)
+        if fade_in:
+            voice[:fade_in] *= np.linspace(0.0, 1.0, fade_in)
+        if fade_out:
+            voice[-fade_out:] *= np.linspace(1.0, 0.0, fade_out)
         start = frame * (SR // FPS)
         n = min(len(voice), sample_count - start)
         if n > 0:
             mix[start:start+n] += voice[:n]
 
-    # Exact legacy audio_mg.py recipe: Dm-Bb-C-Am, 4.5s/chord, peak 0.066.
-    pad = synth_pad(DURATION, peak=0.066)
+    # Continuous understated Dm-Bb-C-Am pad, 4.5s/chord; slightly raised to mask unnatural gaps.
+    pad = synth_pad(DURATION, peak=0.075)
     mix += pad[:sample_count]
 
     peak = float(np.abs(mix).max())

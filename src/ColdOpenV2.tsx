@@ -703,19 +703,19 @@ export const ColdOpenV2: React.FC = () => {
             {shot === 5 && councilOp > 0 && (
               <g opacity={councilOp} transform="translate(790, 725)">
                 <rect
-                  x={-230}
-                  y={-36}
-                  width={230}
-                  height={62}
+                  x={-330}
+                  y={-42}
+                  width={330}
+                  height={78}
                   rx={3}
                   fill="rgba(9, 13, 22, 0.88)"
                   stroke="rgba(244, 63, 94, 0.65)"
                   strokeWidth={1.1}
                 />
-                <rect x={-230} y={-36} width={3.5} height={62} fill="#f43f5e" />
+                <rect x={-330} y={-42} width={3.5} height={78} fill="#f43f5e" />
                 <text
-                  x={-216}
-                  y={-17}
+                  x={-314}
+                  y={-18}
                   fontFamily={MONT}
                   fontWeight={800}
                   fontSize={9.5}
@@ -725,8 +725,8 @@ export const ColdOpenV2: React.FC = () => {
                   POPULATION STRATEGY COUNCIL
                 </text>
                 <text
-                  x={-216}
-                  y={-3}
+                  x={-314}
+                  y={2}
                   fontFamily={MONT}
                   fontWeight={600}
                   fontSize={7.8}
@@ -736,12 +736,12 @@ export const ColdOpenV2: React.FC = () => {
                   INDEPENDENT PRIVATE PANEL · 2024 REPORT
                 </text>
                 <text
-                  x={-216}
-                  y={15}
+                  x={-314}
+                  y={25}
                   fontFamily={MONT}
                   fontWeight={900}
-                  fontSize={12.5}
-                  letterSpacing={1.8}
+                  fontSize={11.5}
+                  letterSpacing={1.1}
                   fill="#fff1f2"
                 >
                   “DEMOGRAPHIC BLACK HOLE”

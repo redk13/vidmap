@@ -91,7 +91,6 @@ export const DiveV2: React.FC = () => {
   const [cox, coy, cs] = camAt();
   const opB = Math.min(t(290, 340), 1 - t(OUT, OUT + 50));
 
-  const pulse = (f % 55) / 55;
   const shinOn = f > 470 && f < OUT;
   const slam = (t0: number) => ({
     o: t(t0, t0 + 12),
@@ -106,7 +105,7 @@ export const DiveV2: React.FC = () => {
   return (
     <AbsoluteFill style={{backgroundColor: '#05080d', fontFamily: MONT, overflow: 'hidden'}}>
       <Img src={staticFile('japan-sat.jpg')} style={{position: 'absolute', left: -120, top: -180,
-        width: 2160, height: 2160, objectFit: 'cover', filter: 'blur(12px) brightness(0.5)'}}/>
+        width: 2160, height: 2160, objectFit: 'cover', filter: 'blur(4px) brightness(0.72) saturate(1.08)'}}/>
             {opA > 0 && (
         <div style={{position: 'absolute', left: 1110 - M.T[0], top: 540 - M.T[1], width: SAT_W, height: SAT_H,
           opacity: opA, transformOrigin: `${M.T[0]}px ${M.T[1]}px`,
@@ -150,8 +149,8 @@ export const DiveV2: React.FC = () => {
             ))}
             {shinOn && (
               <g>
-                <circle cx={M.S[0]} cy={M.S[1]} r={12 + 56 * pulse} fill="none" stroke={YEL}
-                  strokeWidth={3 * (1 - pulse)} opacity={1 - pulse}/>
+                <circle cx={M.S[0]} cy={M.S[1]} r={40} fill="none" stroke={YEL}
+                  strokeWidth={3} opacity={0.72}/>
                 <line x1={M.S[0] - 8} y1={M.S[1] - 8} x2={M.S[0] - 70} y2={M.S[1] - 86} stroke="#fff" strokeWidth={2.5}/>
                 <g transform={`translate(${M.S[0] - 290} ${M.S[1] - 140}) rotate(-2)`}>
                   <rect x={0} y={0} rx={10} width={222} height={52} fill="#fff"
@@ -178,7 +177,7 @@ export const DiveV2: React.FC = () => {
       {phase1Ui > 0 && f > 560 && (
         <Img src={staticFile('photos/crowd.png')} style={{position: 'absolute', left: 64, top: 540, width: 470,
           opacity: c1.o * phase1Ui, filter: 'drop-shadow(0 16px 32px rgba(0,0,0,0.65))',
-          transform: `scale(${c1.s}) rotate(${-3 + 0.8 * Math.sin(f / 39)}deg) translateY(${5 * Math.sin(f / 26)}px)`, transformOrigin: 'left bottom'}}/>
+          transform: `scale(${c1.s}) rotate(-2deg)`, transformOrigin: 'left bottom'}}/>
       )}
       {phase1Ui > 0 && [{c: c1, y: 690, txt: 'TINY APARTMENTS', rot: -2},
         {c: c2, y: 788, txt: 'COMMUTES CAN EAT NEARLY 2 HOURS A DAY', rot: 1.5},
@@ -194,7 +193,7 @@ export const DiveV2: React.FC = () => {
       {f > OUT + 380 && (
         <Img src={staticFile('photos/akiya.png')} style={{position: 'absolute', right: 70, top: 560, width: 470,
           opacity: t(OUT + 380, OUT + 400), filter: 'drop-shadow(0 16px 32px rgba(0,0,0,0.65))',
-          transform: `scale(${interpolate(f, [OUT + 380, OUT + 402], [1.5, 1], {...clamp, easing: Easing.out(Easing.back(1.7))})}) rotate(${2.5 + 0.8 * Math.sin(f / 44)}deg) translateY(${5 * Math.sin(f / 31)}px)`,
+          transform: `scale(${interpolate(f, [OUT + 380, OUT + 402], [1.5, 1], {...clamp, easing: Easing.out(Easing.cubic)})}) rotate(2deg)`,
           transformOrigin: 'right top'}}/>
       )}
       {f > OUT + 80 && (

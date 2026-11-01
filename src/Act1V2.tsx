@@ -84,7 +84,6 @@ export const Act1V2: React.FC = () => {
   const [cox, coy, cs] = camAt();
 
   const panY = interpolate(f, [FLIP - 30, FLIP + 140], [0, 460], {...clamp, easing: Easing.inOut(Easing.cubic)});
-  const pulse = (f % 50) / 50;
 
   const fillFor = (id: number): string => {
     if (fert > 0) {
@@ -111,7 +110,7 @@ export const Act1V2: React.FC = () => {
   return (
     <AbsoluteFill style={{backgroundColor: '#05080d', fontFamily: MONT, overflow: 'hidden'}}>
       <Img src={staticFile('japan-sat.jpg')} style={{position: 'absolute', left: -120, top: -180,
-        width: 2160, height: 2160, objectFit: 'cover', filter: 'blur(12px) brightness(0.5)'}}/>
+        width: 2160, height: 2160, objectFit: 'cover', filter: 'blur(4px) brightness(0.72) saturate(1.08)'}}/>
             <div style={{position: 'absolute', left: 960 - SAT_W / 2 + panX, top: 540 - SAT_H / 2 - 40 - panY,
         width: SAT_W, height: SAT_H,
         transform: `translate(${(cox - 960) * (1 - cs)}px, ${(coy - 438.6) * (1 - cs)}px) scale(${cs}) perspective(1600px) rotateX(35deg) scale(${zoomS})`, transformOrigin: '50% 46%'}}>
@@ -170,8 +169,8 @@ export const Act1V2: React.FC = () => {
 
           {fert > 0.5 && (
             <g>
-              <circle cx={M.T[0]} cy={M.T[1]} r={14 + 40 * pulse} fill="none" stroke="#ff3b4f"
-                strokeWidth={3 * (1 - pulse)} opacity={(1 - pulse) * fert}/>
+              <circle cx={M.T[0]} cy={M.T[1]} r={42} fill="none" stroke="#ff3b4f"
+                strokeWidth={3} opacity={0.78 * fert}/>
               <line x1={M.T[0] - 6} y1={M.T[1] + 8} x2={M.T[0] - 60} y2={M.T[1] + 44} stroke="#fff" strokeWidth={3} opacity={interpolate(f, [FLIP + 100, FLIP + 125], [0, 1], clamp)}/>
               <Sticker x={M.T[0] - 380} y={M.T[1] + 48} rot={-2} bg="#e8273c" color="#fff" o={interpolate(f, [FLIP + 100, FLIP + 125], [0, 1], clamp)}>
                 TOKYO 0.96 — THE LOWEST
@@ -186,7 +185,7 @@ export const Act1V2: React.FC = () => {
         {f > 260 && f < 640 && (() => {
           const p = interpolate(f, [260, 620], [0, 1], clamp);
           return (
-            <div style={{position: 'absolute', left: 640 + (M.T[0] - 640) * p, top: 980 + (M.T[1] - 980) * p + 3 * Math.sin(f / 5),
+            <div style={{position: 'absolute', left: 640 + (M.T[0] - 640) * p, top: 980 + (M.T[1] - 980) * p,
               transform: 'translate(-50%, -100%) rotateX(-35deg)', transformOrigin: '50% 100%',
               opacity: Math.min(interpolate(f, [260, 282], [0, 1], clamp), interpolate(f, [598, 624], [1, 0], clamp))}}>
               <Img src={staticFile('photos/commuters.png')} style={{width: 150 - 95 * p, filter: 'drop-shadow(0 8px 12px rgba(0,0,0,0.5))'}}/>
@@ -196,10 +195,10 @@ export const Act1V2: React.FC = () => {
         {f > 380 && f < 745 && (() => {
           const p = interpolate(f, [380, 722], [0, 1], clamp);
           return (
-            <div style={{position: 'absolute', left: 430 + (M.T[0] - 430) * p, top: 1180 + (M.T[1] - 1180) * p + 3 * Math.sin(f / 5 + 2),
+            <div style={{position: 'absolute', left: 430 + (M.T[0] - 430) * p, top: 1180 + (M.T[1] - 1180) * p,
               transform: 'translate(-50%, -100%) rotateX(-35deg)', transformOrigin: '50% 100%',
               opacity: Math.min(interpolate(f, [380, 402], [0, 1], clamp), interpolate(f, [700, 726], [1, 0], clamp))}}>
-              <Img src={staticFile('photos/commuters.png')} style={{width: 140 - 88 * p, filter: 'drop-shadow(0 8px 12px rgba(0,0,0,0.5))'}}/>
+              <Img src={staticFile('photos/commuters-wave2.png')} style={{width: 140 - 88 * p, filter: 'drop-shadow(0 8px 12px rgba(0,0,0,0.5))'}}/>
             </div>
           );
         })()}
@@ -248,7 +247,7 @@ export const Act1V2: React.FC = () => {
       {f > 210 && f < 745 && (
         <Img src={staticFile('photos/station.png')} style={{position: 'absolute', right: 70, bottom: 110, width: 440,
           opacity: Math.min(interpolate(f, [210, 228], [0, 1], clamp), interpolate(f, [700, 740], [1, 0], clamp)),
-          transform: `scale(${interpolate(f, [210, 232], [1.5, 1], clamp)}) rotate(${-2 + 0.8 * Math.sin(f / 37)}deg) translateY(${5 * Math.sin(f / 27)}px)`, transformOrigin: 'right bottom',
+          transform: `scale(${interpolate(f, [210, 232], [1.5, 1], clamp)}) rotate(-1deg)`, transformOrigin: 'right bottom',
           filter: 'drop-shadow(0 16px 32px rgba(0,0,0,0.65))'}}/>
       )}
       {f > FLIP + 150 && (

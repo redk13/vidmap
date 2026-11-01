@@ -73,11 +73,8 @@ export const MachineV2: React.FC = () => {
   const stamp = interpolate(f, [1620, 1642], [2.2, 1], {...clamp, easing: Easing.out(Easing.cubic)});
   const fl = interpolate(f, [180, 420], [0, 1], {...clamp, easing: Easing.inOut(Easing.quad)});
   const baseLoss = interpolate(f, [300, 500], [1, 0.25], clamp);
-  const pulse = (f % 50) / 50;
 
   const C = [(M.A[0] + M.T[0]) / 2 + 190, (M.A[1] + M.T[1]) / 2];
-  const P = qb(M.A, C, M.T, fl);
-  const girlFade = fl > 0 && fl < 1 ? Math.min(1, (1 - fl) * 8) : 0;
 
   const fillFor = (id: number): string => {
     if (id === 13) return 'rgba(47,134,255,0.65)';
@@ -127,7 +124,7 @@ export const MachineV2: React.FC = () => {
   return (
     <AbsoluteFill style={{backgroundColor: '#05080d', fontFamily: MONT, overflow: 'hidden'}}>
       <Img src={staticFile('japan-sat.jpg')} style={{position: 'absolute', left: -120, top: -180,
-        width: 2160, height: 2160, objectFit: 'cover', filter: 'blur(12px) brightness(0.5)'}}/>
+        width: 2160, height: 2160, objectFit: 'cover', filter: 'blur(4px) brightness(0.72) saturate(1.08)'}}/>
             {japanOp > 0 && (
         <div style={{position: 'absolute', left: 960 - SAT_W / 2 + interpolate(f, [0, 1560], [40, -45], clamp), top: 540 - SAT_H / 2 - 40,
           width: SAT_W, height: SAT_H, opacity: japanOp,
@@ -144,7 +141,7 @@ export const MachineV2: React.FC = () => {
             {M.polys.map((p) => (
               <path key={p.id} d={p.d} fill={fillFor(p.id)} stroke="rgba(255,255,255,0.25)" strokeWidth={0.8}/>
             ))}
-            <circle cx={M.T[0]} cy={M.T[1]} r={54 + 14 * pulse} fill="url(#haloM)" opacity={0.8}/>
+            <circle cx={M.T[0]} cy={M.T[1]} r={61} fill="url(#haloM)" opacity={0.8}/>
 
             {f > 60 && f < 1540 && (
               <g>
@@ -152,14 +149,6 @@ export const MachineV2: React.FC = () => {
                   const q = qb(M.A, C, M.T, i / 20);
                   return <circle key={i} cx={q[0]} cy={q[1]} r={3.2} fill="#9cc4ff" opacity={i / 20 < fl ? 0.8 : 0.2}/>;
                 })}
-                {girlFade > 0 && (
-                  <g opacity={girlFade}>
-                    <ellipse cx={P[0]} cy={P[1] + 42} rx={26} ry={9} fill="rgba(0,0,0,0.45)"/>
-                    <foreignObject x={P[0] - 38} y={P[1] - 52} width={76} height={96}>
-                      <Img src={staticFile('puppets/girl.png')} style={{width: 76, height: 94, objectFit: 'contain'}}/>
-                    </foreignObject>
-                  </g>
-                )}
                 <MiniPyr x={M.A[0] - 170} y={M.A[1] - 20} label="A RURAL TOWN" hi={4} hiColor={CRIM} o={t(60, 85)}
                   bars={[52, 66, 74, 62, 46 * baseLoss]}/>
                 <MiniPyr x={M.T[0] + 190} y={M.T[1] - 60} label="TOKYO" hi={2} hiColor={YEL} o={t(60, 85)}
@@ -197,7 +186,7 @@ export const MachineV2: React.FC = () => {
               return <g>{parts}</g>;
             })()}
             {cnt16 > 0 && (() => {
-              const pups = ['puppets/worker.png', 'puppets/girl.png', 'puppets/senior.png'];
+              const pups = ['puppets/worker.png', 'puppets/inflow-worker-alt.png', 'puppets/senior.png'];
               const els = [];
               for (let i = 0; i < 6; i++) {
                 const sp = ((f - 1840) / 240 + i / 6) % 1;
@@ -281,7 +270,7 @@ export const MachineV2: React.FC = () => {
       {f > 1700 && f < 2420 && (
         <Img src={staticFile('photos/aerial.png')} style={{position: 'absolute', left: 86, top: 560, width: 360,
           opacity: Math.min(t(1700, 1720), 1 - t(2380, 2420)),
-          transform: `scale(${interpolate(f, [1700, 1724], [1.5, 1], clamp)}) rotate(${-2 + 0.8 * Math.sin(f / 40)}deg) translateY(${5 * Math.sin(f / 30)}px)`, transformOrigin: 'left top',
+          transform: `scale(${interpolate(f, [1700, 1724], [1.5, 1], clamp)}) rotate(-1deg)`, transformOrigin: 'left top',
           filter: 'drop-shadow(0 16px 32px rgba(0,0,0,0.65))'}}/>
       )}
       </AbsoluteFill>

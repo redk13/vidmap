@@ -34,7 +34,7 @@ const Pyramid: React.FC<{
   for (let i = 0; i < N; i++) {
     const yi = top + (N - 1 - i) * (barH + gap);
     const grow = interpolate(f, [delay + i * 5, delay + 28 + i * 5], [0, 1], clamp);
-    const breathe = 1 + 0.012 * Math.sin((f - delay) / 17 + i * 0.6);
+    const breathe = 1;
     const wM = (100 * male[i] / sum / maxPct) * maxW * grow * breathe;
     const wF = (100 * female[i] / sum / maxPct) * maxW * grow * breathe;
     const hi = i >= highlight[0] && i <= highlight[1];
@@ -105,7 +105,7 @@ export const PyramidsV2: React.FC = () => {
   const chip1 = interpolate(f, [360, 378], [0, 1], clamp);
   const chip2 = interpolate(f, [410, 428], [0, 1], clamp);
   const maxPct = 4.6;
-  const pulse = 0.5 + 0.22 * Math.sin(f / 14);
+  const pulse = 0.78;
   const fillFor = (id: number): string => {
     if (id === 13) return `rgba(232,39,60,${pulse})`;
     if (id === 47) return `rgba(47,134,255,${pulse})`;
@@ -114,7 +114,7 @@ export const PyramidsV2: React.FC = () => {
   return (
     <AbsoluteFill style={{backgroundColor: '#05080d', fontFamily: MONT, overflow: 'hidden'}}>
       <Img src={staticFile('japan-sat.jpg')} style={{position: 'absolute', left: -120, top: -180,
-        width: 2160, height: 2160, objectFit: 'cover', filter: 'blur(12px) brightness(0.5)'}}/>
+        width: 2160, height: 2160, objectFit: 'cover', filter: 'blur(4px) brightness(0.72) saturate(1.08)'}}/>
             <div style={{position: 'absolute', left: 960 - SAT_W / 2 + panX, top: 540 - SAT_H / 2 - 40 + panYp,
         width: SAT_W, height: SAT_H, opacity: fadeIn,
         transform: `translate(${(cox - 960) * (1 - cs)}px, ${(coy - 438.6) * (1 - cs)}px) scale(${cs}) perspective(1600px) rotateX(35deg) scale(${interpolate(f, [0, 652], [1.52, 1.68], clamp)})`, transformOrigin: '50% 46%'}}>
@@ -166,21 +166,21 @@ export const PyramidsV2: React.FC = () => {
       {f > 440 && (
         <Img src={staticFile('photos/okinawa-kids.png')} style={{position: 'absolute', left: '50%', top: 788, width: 360,
           opacity: interpolate(f, [440, 458], [0, 1], clamp),
-          transform: `translateX(-50%) scale(${interpolate(f, [440, 462], [1.5, 1], clamp)}) rotate(${-2 + 0.7 * Math.sin(f / 43)}deg) translateY(${5 * Math.sin(f / 31)}px)`,
+          transform: `translateX(-50%) scale(${interpolate(f, [440, 462], [1.5, 1], clamp)}) rotate(-1deg)`,
           filter: 'drop-shadow(0 16px 32px rgba(0,0,0,0.65))'}}/>
       )}
       
       {f > 200 && (
         <Img src={staticFile('puppets/senior.png')} style={{position: 'absolute', height: 250,
           left: interpolate(f, [200, 245], [-280, 95], clamp),
-          top: 752 + 4 * Math.sin(f / 23),
+          top: 752,
           opacity: interpolate(f, [200, 220], [0, 1], clamp),
           filter: 'drop-shadow(0 12px 20px rgba(0,0,0,0.6))'}}/>
       )}
       {f > 240 && (
-        <Img src={staticFile('puppets/girl.png')} style={{position: 'absolute', height: 235,
+        <Img src={staticFile('puppets/youth-pyramid-alt.png')} style={{position: 'absolute', height: 235,
           left: interpolate(f, [240, 285], [2160, 1655], clamp),
-          top: 765 + 4 * Math.sin(f / 21 + 2),
+          top: 765,
           opacity: interpolate(f, [240, 260], [0, 1], clamp),
           transform: 'scaleX(-1)',
           filter: 'drop-shadow(0 12px 20px rgba(0,0,0,0.6))'}}/>

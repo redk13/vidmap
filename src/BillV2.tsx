@@ -77,12 +77,12 @@ export const BillV2: React.FC = () => {
   
   const bar = (t0: number) => interpolate(f, [t0, t0 + 40], [0, 1], {...clamp, easing: Easing.out(Easing.cubic)});
   const full = Math.floor(ratio), frac = ratio - full;
-  const bob = Math.sin(f / 23) * 4;
+  const bob = 0;
 
   return (
     <AbsoluteFill style={{backgroundColor: '#05080d', fontFamily: MONT, overflow: 'hidden'}}>
       <Img src={staticFile('japan-sat.jpg')} style={{position: 'absolute', left: -120, top: -180,
-        width: 2160, height: 2160, objectFit: 'cover', filter: 'blur(12px) brightness(0.5)'}}/>
+        width: 2160, height: 2160, objectFit: 'cover', filter: 'blur(4px) brightness(0.72) saturate(1.08)'}}/>
             <div style={{position: 'absolute', left: 960 - SAT_W / 2 + interpolate(f, [0, 1761], [45, -45], clamp), top: 540 - SAT_H / 2 - 40 + interpolate(f, [0, 1761], [-20, 25], clamp),
         width: SAT_W, height: SAT_H, opacity: t(0, 25),
         transform: `translate(${(cox - 960) * (1 - cs)}px, ${(coy - 438.6) * (1 - cs)}px) scale(${cs}) perspective(1600px) rotateX(35deg) scale(${interpolate(f, [0, 700, 1300, 1761], [1.56, 1.64, 1.56, 1.68], clamp)})`, transformOrigin: '50% 46%'}}>
@@ -195,10 +195,10 @@ export const BillV2: React.FC = () => {
         </svg>
       )}
       {pC > 0.01 && f > 1300 && (
-        <Img src={staticFile('photos/akiya.png')} style={{position: 'absolute', right: 100, top: 740, width: 360,
+        <Img src={staticFile('photos/akiya-bill-alt.png')} style={{position: 'absolute', right: 100, top: 740, width: 360,
           opacity: pC * t(1300, 1320),
-          transform: `scale(${interpolate(f, [1300, 1324], [1.5, 1], clamp)}) rotate(${1.5 + 0.7 * Math.sin(f / 42)}deg) translateY(${5 * Math.sin(f / 29)}px)`, transformOrigin: 'right top',
-          filter: 'drop-shadow(0 16px 32px rgba(0,0,0,0.65))'}}/>
+          transform: `scale(${interpolate(f, [1300, 1324], [1.5, 1], clamp)}) rotate(1deg)`, transformOrigin: 'right top',
+          filter: 'drop-shadow(0 16px 32px rgba(0,0,0,0.65))', border: '8px solid #f1eee4', padding: 6, background: '#f1eee4'}}/>
       )}
       </AbsoluteFill>
   );

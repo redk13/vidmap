@@ -79,13 +79,12 @@ export const FinaleV2: React.FC = () => {
   const solidPts: string[] = [], dotPts: string[] = [];
   for (let y = 1950; y <= Math.min(yr, 2025); y += 1) solidPts.push(`${y === 1950 ? 'M' : 'L'}${xOf(y).toFixed(1)},${yOf(valAt(y)).toFixed(1)}`);
   if (yr > 2025) for (let y = 2025; y <= yr; y += 1) dotPts.push(`${y === 2025 ? 'M' : 'L'}${xOf(y).toFixed(1)},${yOf(valAt(y)).toFixed(1)}`);
-  const pulse = (f % 50) / 50;
   const kSlide = (1 - interpolate(f, [1530, 1600], [0, 1], {...clamp, easing: Easing.out(Easing.cubic)})) * 220;
 
   return (
     <AbsoluteFill style={{backgroundColor: '#05080d', fontFamily: MONT, overflow: 'hidden'}}>
       <Img src={staticFile('japan-sat.jpg')} style={{position: 'absolute', left: -120, top: -180,
-        width: 2160, height: 2160, objectFit: 'cover', filter: 'blur(12px) brightness(0.5)'}}/>
+        width: 2160, height: 2160, objectFit: 'cover', filter: 'blur(4px) brightness(0.72) saturate(1.08)'}}/>
             {/* plane AB — Japan, dimmed, chart on top */}
       {pAB > 0.01 && (
         <div style={{position: 'absolute', inset: 0, opacity: pAB}}>
@@ -133,13 +132,15 @@ export const FinaleV2: React.FC = () => {
           {f > 920 && (
             <div style={{position: 'absolute', top: 70, right: 86, width: 600, opacity: t(920, 945)}}>
               <div style={{fontFamily: LUCK, fontSize: 36, color: '#fff', marginBottom: 14, textShadow: '0 4px 14px rgba(0,0,0,0.8)'}}>TOKYO IS TRYING —</div>
-              {[{s: 960, txt: '4-DAY WORKWEEK — OPTIONAL (metro gov staff, 2025)', r: -1.5},
-                {s: 1030, txt: 'FREE DAYCARE FOR PRESCHOOLERS (2025)', r: 1},
-                {s: 1100, txt: 'EVEN A GOVERNMENT DATING APP', r: -1}].map((c, i) => (
-                <div key={i} style={{background: '#fff', borderRadius: 10, padding: '10px 18px', marginBottom: 12,
-                  opacity: f > c.s ? 1 : 0, transform: `scale(${slam(c.s)}) rotate(${c.r}deg)`, transformOrigin: 'right center',
-                  boxShadow: '0 10px 24px rgba(0,0,0,0.55)'}}>
-                  <span style={{fontSize: 23, fontWeight: 900, color: INK}}>{c.txt}</span>
+              {[{s: 960, lines: ['4-DAY WORKWEEK — OPTIONAL', '(TOKYO METRO STAFF, 2025)'], r: 0},
+                {s: 1030, lines: ['FREE DAYCARE FOR PRESCHOOLERS', '(2025)'], r: 0},
+                {s: 1100, lines: ['EVEN A GOVERNMENT DATING APP', ''], r: 0}].map((c, i) => (
+                <div key={i} style={{width: 600, minHeight: 72, boxSizing: 'border-box', background: '#fff', borderRadius: 10, padding: '10px 18px', marginBottom: 12,
+                  opacity: interpolate(f, [c.s - 12, c.s + 4], [0, 1], clamp),
+                  transform: `scale(${interpolate(f, [c.s - 10, c.s + 12], [0.97, 1], clamp)})`, transformOrigin: 'right center',
+                  boxShadow: '0 10px 24px rgba(0,0,0,0.55)', overflow: 'hidden'}}>
+                  <div style={{fontSize: 22, lineHeight: 1.12, fontWeight: 900, color: INK, whiteSpace: 'nowrap'}}>{c.lines[0]}</div>
+                  {c.lines[1] && <div style={{fontSize: 16, lineHeight: 1.15, fontWeight: 800, color: '#405064', marginTop: 3}}>{c.lines[1]}</div>}
                 </div>
               ))}
               <div style={{fontSize: 25, fontWeight: 900, color: '#ff5a6e', marginTop: 10, opacity: t(1180, 1205)}}>
@@ -166,9 +167,10 @@ export const FinaleV2: React.FC = () => {
               </g>
               {f > 1700 && (
                 <g>
-                  <circle cx={M.seoul[0]} cy={M.seoul[1]} r={6} fill="#fff"/>
-                  <circle cx={M.seoul[0]} cy={M.seoul[1]} r={9 + 42 * pulse} fill="none" stroke={CRIM}
-                    strokeWidth={3 * (1 - pulse)} opacity={1 - pulse}/>
+                  <defs><radialGradient id="seoul-hotspot"><stop offset="0" stopColor="#ff344d" stopOpacity="0.86"/><stop offset="0.28" stopColor="#ff344d" stopOpacity="0.50"/><stop offset="1" stopColor="#ff344d" stopOpacity="0"/></radialGradient></defs>
+                  <circle cx={M.seoul[0]} cy={M.seoul[1]} r={104} fill="url(#seoul-hotspot)"/>
+                  <circle cx={M.seoul[0]} cy={M.seoul[1]} r={42} fill="none" stroke={CRIM} strokeWidth={4}/>
+                  <circle cx={M.seoul[0]} cy={M.seoul[1]} r={10} fill="#fff" stroke={CRIM} strokeWidth={3}/>
                   <line x1={M.seoul[0] + 6} y1={M.seoul[1] - 6} x2={M.seoul[0] + 60} y2={M.seoul[1] - 64} stroke="#fff" strokeWidth={2}/>
                   <g transform={`translate(${M.seoul[0] + 60} ${M.seoul[1] - 100}) rotate(-2)`} opacity={t(1700, 1720)}>
                     <rect x={0} y={0} rx={8} width={132} height={40} fill="#fff"
@@ -212,7 +214,7 @@ export const FinaleV2: React.FC = () => {
       {pC > 0.01 && f > 1700 && (
         <Img src={staticFile('photos/seoul.png')} style={{position: 'absolute', right: 80, bottom: 110, width: 430,
           opacity: pC * t(1700, 1725),
-          transform: `scale(${interpolate(f, [1700, 1728], [1.5, 1], clamp)}) rotate(${2 + 0.8 * Math.sin(f / 38)}deg) translateY(${5 * Math.sin(f / 27)}px)`, transformOrigin: 'right bottom',
+          transform: `scale(${interpolate(f, [1700, 1728], [1.5, 1], clamp)})`, transformOrigin: 'right bottom',
           filter: 'drop-shadow(0 16px 32px rgba(0,0,0,0.65))'}}/>
       )}
       
