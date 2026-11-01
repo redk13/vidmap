@@ -23,8 +23,10 @@ import {LabClip} from './LabClip';
 import {LabPile} from './LabPile';
 import {LabGrid} from './LabGrid';
 import {LabCrumple} from './LabCrumple';
+import {LabTear} from './LabTear';
 export const Root: React.FC = () => (
   <>
+    <Composition id="labTear" component={LabTear} durationInFrames={360} fps={30} width={1920} height={1080} />
     <Composition id="labCrumple" component={LabCrumple} durationInFrames={240} fps={30} width={1920} height={1080} />
     <Composition id="labGrid" component={LabGrid} durationInFrames={360} fps={30} width={1920} height={1080} />
     <Composition id="labPile" component={LabPile} durationInFrames={360} fps={30} width={1920} height={1080} />
