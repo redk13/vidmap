@@ -33,8 +33,10 @@ import {LabHeadlineDrop} from './LabHeadlineDrop';
 import {LabWebExcerpt} from './LabWebExcerpt';
 import {LabNeonSequence} from './LabNeonSequence';
 import {LabPaperWriting} from './LabPaperWriting';
+import {LabAnimatedChart} from './LabAnimatedChart';
 export const Root: React.FC = () => (
   <>
+    <Composition id="labAnimatedChart" component={LabAnimatedChart} durationInFrames={300} fps={30} width={1920} height={1080} />
     <Composition id="labPaperWriting" component={LabPaperWriting} durationInFrames={300} fps={30} width={1920} height={1080} />
     <Composition id="labNeonSequence" component={LabNeonSequence} durationInFrames={300} fps={30} width={1920} height={1080} />
     <Composition id="labWebExcerpt" component={LabWebExcerpt} durationInFrames={300} fps={30} width={1920} height={1080} />
