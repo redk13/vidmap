@@ -163,7 +163,7 @@ export const LabNeonSequence: React.FC = () => {
         </defs>
 
         <NeonArrow start={48} end={78} d="M820 316 C915 254 1035 263 1135 330" tip={{x: 1135, y: 330, angle: 36}} />
-        <NeonArrow start={144} end={174} d="M1515 515 C1585 565 1570 635 1485 675" tip={{x: 1485, y: 675, angle: 151}} />
+        <NeonArrow start={144} end={174} d="M1530 515 C1605 570 1600 650 1530 705" tip={{x: 1530, y: 705, angle: 142}} />
 
         <IconStage start={4} x={580} y={255}><PropertyIcon /></IconStage>
         <IconStage start={84} x={1350} y={255}><TaxIcon /></IconStage>
