@@ -5,37 +5,41 @@ const clamp = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'} as const;
 
 export const LabSpotlightDoc: React.FC = () => {
   const frame = useCurrentFrame();
-  const zoom = interpolate(frame, [0, 299], [1, 1.018], clamp);
-  const dim = interpolate(frame, [20, 56], [0.22, 0.88], {...clamp, easing: Easing.bezier(0.4, 0, 0.2, 1)});
-  const spot = interpolate(frame, [26, 60], [0, 0.88], {...clamp, easing: Easing.bezier(0.4, 0, 0.2, 1)});
-  const spotY = interpolate(frame, [22, 58], [59, 69], clamp);
+  const zoom = interpolate(frame, [0, 299], [1.09, 1.115], clamp);
+  const dim = interpolate(frame, [20, 56], [0.18, 0.76], {...clamp, easing: Easing.bezier(0.4, 0, 0.2, 1)});
+  const spot = interpolate(frame, [26, 60], [0, 0.72], {...clamp, easing: Easing.bezier(0.4, 0, 0.2, 1)});
   const sweep = interpolate(frame, [72, 104], [0, 1], {...clamp, easing: Easing.bezier(0.45, 0, 0.2, 1)});
 
   // Geometry exported by build_lab8_document.py. The highlighted image is an
-  // identical page with yellow painted BEFORE the target text, so the sweep
-  // reveals a real printed-text/highlighter composite rather than covering ink.
+  // identical page with yellow painted BEFORE the target text, preserving ink.
   const clipLeft = 445;
   const clipWidth = 950;
   const clipRight = 1920 - (clipLeft + clipWidth * sweep);
   const highlightClip = `inset(724px ${clipRight}px 296px ${clipLeft}px)`;
+  const pageTransform = `scale(${zoom})`;
 
   return (
     <AbsoluteFill style={{backgroundColor: '#020303', overflow: 'hidden'}}>
-      <AbsoluteFill style={{transform: `scale(${zoom})`, transformOrigin: '52% 68%'}}>
+      <AbsoluteFill style={{transform: pageTransform, transformOrigin: '52% 68%'}}>
         <Img src={staticFile('lab8-document-clean.webp')} style={{position: 'absolute', left: 0, top: 0, width: 1920, height: 1080}} />
-        <Img src={staticFile('lab8-document-highlight.webp')} style={{position: 'absolute', left: 0, top: 0, width: 1920, height: 1080, clipPath: highlightClip}} />
       </AbsoluteFill>
 
       <AbsoluteFill
         style={{
-          background: `radial-gradient(ellipse 760px 345px at 52% ${spotY}%, rgba(0,0,0,0) 0%, rgba(0,0,0,.08) 42%, rgba(0,0,0,.76) 100%)`,
+          background: 'radial-gradient(ellipse 850px 390px at 52% 68%, rgba(0,0,0,0) 0%, rgba(0,0,0,.05) 44%, rgba(0,0,0,.64) 100%)',
           opacity: dim,
         }}
       />
-      <AbsoluteFill style={{backgroundColor: '#000', opacity: dim * 0.15}} />
+      <AbsoluteFill style={{backgroundColor: '#000', opacity: dim * 0.09}} />
+
+      {/* Keep the yellow above the dimming layer, as in the bright reference,
+          but below the soft spotlight so it still belongs to the same light. */}
+      <AbsoluteFill style={{transform: pageTransform, transformOrigin: '52% 68%'}}>
+        <Img src={staticFile('lab8-document-highlight.webp')} style={{position: 'absolute', left: 0, top: 0, width: 1920, height: 1080, clipPath: highlightClip}} />
+      </AbsoluteFill>
       <AbsoluteFill
         style={{
-          background: `radial-gradient(ellipse 650px 245px at 52% ${spotY}%, rgba(255,255,255,.32) 0%, rgba(255,255,255,.12) 46%, rgba(255,255,255,0) 76%)`,
+          background: 'radial-gradient(ellipse 700px 280px at 52% 68%, rgba(255,255,255,.28) 0%, rgba(255,255,255,.11) 46%, rgba(255,255,255,0) 78%)',
           mixBlendMode: 'screen',
           opacity: spot,
         }}

@@ -9,14 +9,16 @@ SERIF = '/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf'
 SERIF_BOLD = '/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf'
 MONT = str(ROOT / 'fonts' / 'Montserrat-SemiBold.ttf')
 MONT_BOLD = str(ROOT / 'fonts' / 'Montserrat-ExtraBold.ttf')
+SANS = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
+SANS_BOLD = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 
 source = Image.open(PUBLIC / 'lab8-paper-source.png').convert('RGB')
 # Use the generated blank report only as real-looking paper texture. All data and
 # typography are original and are added below from the verified MIC figures.
-right_texture = source.crop((710, 55, 1135, 715)).resize((1120, 1140), Image.Resampling.LANCZOS)
-right_texture = ImageEnhance.Brightness(right_texture).enhance(0.80)
-right_texture = ImageEnhance.Contrast(right_texture).enhance(0.90)
-left_texture = source.crop((270, 55, 640, 715)).resize((260, 940), Image.Resampling.LANCZOS)
+right_texture = source.crop((440, 85, 1135, 690)).resize((1120, 1140), Image.Resampling.LANCZOS)
+right_texture = ImageEnhance.Brightness(right_texture).enhance(0.86)
+right_texture = ImageEnhance.Contrast(right_texture).enhance(0.92)
+left_texture = source.crop((230, 80, 390, 690)).resize((260, 940), Image.Resampling.LANCZOS)
 left_texture = ImageEnhance.Brightness(left_texture).enhance(0.27)
 
 canvas = Image.new('RGB', (W, H), '#030405')
@@ -36,18 +38,18 @@ grid = (115, 116, 109, 150)
 red = (121, 35, 46, 255)
 slate = (59, 88, 98, 255)
 
-f_header = ImageFont.truetype(MONT, 18)
-f_chart = ImageFont.truetype(MONT_BOLD, 22)
-f_small = ImageFont.truetype(MONT, 17)
-f_value = ImageFont.truetype(MONT_BOLD, 20)
+f_header = ImageFont.truetype(SANS, 16)
+f_chart = ImageFont.truetype(SERIF_BOLD, 23)
+f_small = ImageFont.truetype(SANS, 16)
+f_value = ImageFont.truetype(SERIF_BOLD, 20)
 f_serif = ImageFont.truetype(SERIF, 20)
 f_body = ImageFont.truetype(SERIF, 28)
 f_body_bold = ImageFont.truetype(SERIF_BOLD, 28)
 
 # Header and original data chart.
 canvas_draw = ImageDraw.Draw(canvas)
-canvas_draw.text((460, 54), 'TOKYO / HOUSING DATA BRIEF · 2026', font=f_header, fill=muted)
-canvas_draw.text((460, 92), 'JAPAN — VACANT HOMES BY CATEGORY · 2023', font=f_chart, fill=ink)
+canvas_draw.text((460, 54), 'TOKYO METROPOLITAN REGION / DATA NOTE · 2026', font=f_header, fill=muted)
+canvas_draw.text((460, 92), 'Figure 1. Japan’s vacant homes by category, 2023', font=f_chart, fill=ink)
 
 chart_x, chart_y, chart_w, chart_h = 510, 150, 830, 225
 for tick in range(6):
@@ -59,7 +61,7 @@ canvas_draw.line((chart_x, chart_y + chart_h, chart_x + chart_w, chart_y + chart
 values = [4.436, 3.856, 0.384, 0.326]
 labels = ['RENTAL', 'OTHER /\nABANDONED', 'SECOND\nHOMES', 'FOR SALE']
 colors = [red, slate, (106, 77, 91, 255), (83, 102, 91, 255)]
-bar_w = 112
+bar_w = 88
 for i, (value, label, color) in enumerate(zip(values, labels, colors)):
     x = chart_x + 48 + i * 198
     height = value / 5 * chart_h
@@ -68,8 +70,8 @@ for i, (value, label, color) in enumerate(zip(values, labels, colors)):
     bar = Image.new('RGBA', (bar_w, bar_h), color)
     bd = ImageDraw.Draw(bar)
     # Fine diagonal hatch is clipped to the bar itself, like a printed chart.
-    for k in range(-bar_h, bar_w + bar_h, 18):
-        bd.line((k, bar_h, k + bar_h, 0), fill=(210, 211, 199, 80), width=2)
+    for k in range(-bar_h, bar_w + bar_h, 22):
+        bd.line((k, bar_h, k + bar_h, 0), fill=(230, 230, 220, 42), width=1)
     bd.rectangle((0, 0, bar_w - 1, bar_h - 1), outline=(45, 48, 47, 255), width=2)
     canvas.paste(bar, (int(x), int(chart_y + chart_h - bar_h)), bar)
     canvas_draw = ImageDraw.Draw(canvas)
