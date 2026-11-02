@@ -10,8 +10,9 @@ export const LabSpotlightDoc: React.FC = () => {
   const spot = interpolate(frame, [26, 60], [0, 0.72], {...clamp, easing: Easing.bezier(0.4, 0, 0.2, 1)});
   const sweep = interpolate(frame, [72, 104], [0, 1], {...clamp, easing: Easing.bezier(0.45, 0, 0.2, 1)});
 
-  // Geometry exported by build_lab8_document.py. The highlighted image is an
-  // identical page with yellow painted BEFORE the target text, preserving ink.
+  // Geometry exported by build_lab8_document.py. A transparent yellow-only
+  // stroke is revealed over the printed page with multiply, preserving black ink
+  // and avoiding any rectangular overlay around the highlighter.
   const clipLeft = 445;
   const clipWidth = 950;
   const clipRight = 1920 - (clipLeft + clipWidth * sweep);
@@ -35,7 +36,7 @@ export const LabSpotlightDoc: React.FC = () => {
       {/* Keep the yellow above the dimming layer, as in the bright reference,
           but below the soft spotlight so it still belongs to the same light. */}
       <AbsoluteFill style={{transform: pageTransform, transformOrigin: '52% 68%'}}>
-        <Img src={staticFile('lab8-document-highlight.webp')} style={{position: 'absolute', left: 0, top: 0, width: 1920, height: 1080, clipPath: highlightClip}} />
+        <Img src={staticFile('lab8-highlight-stroke.png')} style={{position: 'absolute', left: 0, top: 0, width: 1920, height: 1080, clipPath: highlightClip, mixBlendMode: 'multiply'}} />
       </AbsoluteFill>
       <AbsoluteFill
         style={{

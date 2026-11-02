@@ -48,7 +48,6 @@ f_body_bold = ImageFont.truetype(SERIF_BOLD, 28)
 
 # Header and original data chart.
 canvas_draw = ImageDraw.Draw(canvas)
-canvas_draw.text((460, 54), 'TOKYO METROPOLITAN REGION / DATA NOTE · 2026', font=f_header, fill=muted)
 canvas_draw.text((460, 92), 'Figure 1. Japan’s vacant homes by category, 2023', font=f_chart, fill=ink)
 
 chart_x, chart_y, chart_w, chart_h = 510, 150, 830, 225
@@ -101,19 +100,22 @@ target_w = canvas_draw.textlength(target, font=f_body)
 print(f'TARGET_X={text_x};TARGET_Y={target_y};TARGET_W={target_w:.2f};TARGET_H=44')
 
 
+stroke = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+od = ImageDraw.Draw(stroke)
+rnd = random.Random(23)
+x0, x1 = text_x - 9, text_x + target_w + 15
+y0, y1 = target_y - 5, target_y + 41
+top = [(x0 + (x1 - x0) * i / 28, y0 + rnd.uniform(-2.2, 2.2)) for i in range(29)]
+bottom = [(x0 + (x1 - x0) * i / 28, y1 + rnd.uniform(-2.4, 2.4)) for i in reversed(range(29))]
+od.polygon(top + bottom, fill=(249, 237, 20, 210))
+stroke = stroke.filter(ImageFilter.GaussianBlur(0.45))
+stroke.save(PUBLIC / 'lab8-highlight-stroke.png')
+
+
 def make_image(highlighted: bool) -> Image.Image:
     im = canvas.copy()
     if highlighted:
-        overlay = Image.new('RGBA', (W, H), (0, 0, 0, 0))
-        od = ImageDraw.Draw(overlay)
-        rnd = random.Random(23)
-        x0, x1 = text_x - 9, text_x + target_w + 15
-        y0, y1 = target_y - 5, target_y + 41
-        top = [(x0 + (x1 - x0) * i / 28, y0 + rnd.uniform(-2.2, 2.2)) for i in range(29)]
-        bottom = [(x0 + (x1 - x0) * i / 28, y1 + rnd.uniform(-2.4, 2.4)) for i in reversed(range(29))]
-        od.polygon(top + bottom, fill=(249, 237, 20, 198))
-        overlay = overlay.filter(ImageFilter.GaussianBlur(0.45))
-        im = Image.alpha_composite(im, overlay)
+        im = Image.alpha_composite(im, stroke)
     d = ImageDraw.Draw(im)
     d.text((text_x, target_y), target, font=f_body, fill=ink)
     return im
