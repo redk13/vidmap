@@ -45,7 +45,7 @@ export const LabPaperWriting: React.FC = () => {
   return (
     <AbsoluteFill style={{backgroundColor: '#111b18', overflow: 'hidden'}}>
       <Img src={staticFile('lab13-chalkboard.png')} style={{width: '100%', height: '100%', objectFit: 'cover'}} />
-      <Audio src={staticFile('lab13-writing.wav')} volume={0.8} />
+      <Audio src={staticFile('lab13-writing.wav')} volume={1.4} />
 
       <div
         style={{
