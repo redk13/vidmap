@@ -2,9 +2,11 @@
 
 Verified on 2026-11-02 before rendering.
 
-## Reference boundary
+## Reference boundary and staging
 
-The two supplied screenshots are staging references only. Their Euronews, BBC and Reuters logos, yellow headline treatments, dates, article claims, background pixels and layouts are not used. The sample uses an original generated city background, three different non-yellow board colors, and only a headline in the upper board. A small source/license line remains at the bottom as required by the house style and attribution terms.
+The two supplied screenshots guide the staging only: a publisher/title line above each headline, a published date below it, and newer boards dropping into the same scene while earlier boards remain visible and recede. Their Euronews, BBC and Reuters logos, yellow treatment, article claims, background pixels and proprietary layouts are not copied.
+
+The production sample uses an original generated city background, **one unified mint color for every board**, and plain text **“Wikinews”** above each headline as attribution—not the Wikinews logo. Each headline has its real publication date below it. A small `Headlines: Wikinews · CC BY 2.5 · en.wikinews.org` line remains at the bottom.
 
 ## Headline license check
 
@@ -14,9 +16,9 @@ English Wikinews states that material published after 25 September 2005 and befo
 
 License: https://creativecommons.org/licenses/by/2.5/
 
-Attribution and reuse requirements recorded from the policy and reuse guidance: attribute to **Wikinews**, identify **CC BY 2.5**, and preserve links to the source articles and license in this card. On-screen lines name Wikinews, the publication date, CC BY 2.5 and `en.wikinews.org`. Dates remain at the bottom so historical headlines are not presented as current 2026 news.
+Attribution and reuse requirements recorded from the policy and reuse guidance: attribute to **Wikinews**, identify **CC BY 2.5**, and preserve links to the source articles and license in this card. Dates stay with their headlines so historical items are not presented as current 2026 news.
 
-### 1. Mint board
+### 1. First mint board
 
 - Exact headline: **“Central banks worldwide cut interest rates”**
 - Wikinews publication date: **8 October 2008**.
@@ -24,7 +26,7 @@ Attribution and reuse requirements recorded from the policy and reuse guidance: 
 - Verified archived revision: https://en.wikinews.org/w/index.php?title=Central_banks_worldwide_cut_interest_rates&oldid=4815646
 - The archived page explicitly states CC BY 2.5; Published/Archived categories verified.
 
-### 2. Coral board
+### 2. Second mint board
 
 - Exact headline: **“Bank of England raises interest rates”**
 - Wikinews publication date: **11 January 2007**.
@@ -33,7 +35,7 @@ Attribution and reuse requirements recorded from the policy and reuse guidance: 
 - The archived page explicitly states CC BY 2.5; Published/Archived categories verified.
 - This published event replaces an initially considered forecast headline, so the sample contains no unlabeled projection.
 
-### 3. Periwinkle board
+### 3. Third mint board
 
 - Exact headline: **“Hungary extends fuel price cap”**
 - Wikinews publication date: **16 February 2022**.
@@ -47,4 +49,4 @@ Attribution and reuse requirements recorded from the policy and reuse guidance: 
 
 ## Animation scope
 
-A silent 10-second Remotion composition, `labHeadlineDrop`, 300 frames at 30fps, 1920×1080. One colored headline board is present at a time. Each of the first two boards exits fully downward before the next enters from above; the third remains for reading. There is no logo, published-date block beneath the headline, stacked board wall, camera shake or yellow reference treatment.
+A silent 10-second Remotion composition, `labHeadlineDrop`, 300 frames at 30fps, 1920×1080. The first group enters from above and stays. The second and third groups then drop into lower slots in the same scene; earlier groups shift down slightly, dim and soften but never exit or disappear. All three remain visible at the end, with the newest group current. Every board uses the same mint color. No camera shake, stacked-logo copying or yellow reference treatment.
