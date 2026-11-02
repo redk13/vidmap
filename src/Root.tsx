@@ -35,8 +35,10 @@ import {LabNeonSequence} from './LabNeonSequence';
 import {LabPaperWriting} from './LabPaperWriting';
 import {LabAnimatedChart} from './LabAnimatedChart';
 import {LabOnlineLine} from './LabOnlineLine';
+import {LabNeonFrames} from './LabNeonFrames';
 export const Root: React.FC = () => (
   <>
+    <Composition id="labNeonFrames" component={LabNeonFrames} durationInFrames={300} fps={30} width={1920} height={1080} />
     <Composition id="labOnlineLine" component={LabOnlineLine} durationInFrames={300} fps={30} width={1920} height={1080} />
     <Composition id="labAnimatedChart" component={LabAnimatedChart} durationInFrames={300} fps={30} width={1920} height={1080} />
     <Composition id="labPaperWriting" component={LabPaperWriting} durationInFrames={300} fps={30} width={1920} height={1080} />
