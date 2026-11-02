@@ -15,10 +15,10 @@ export const LabPaperThrow: React.FC = () => {
   const firstTransform = `translate3d(${250 - 950 * (1 - first)}px, ${90 - 800 * (1 - first)}px, 0) rotate(${-7 - 25 * (1 - first)}deg)`;
   const secondTransform = `translate3d(${800 + 900 * (1 - second)}px, ${60 - 850 * (1 - second)}px, 0) rotate(${5 + 25 * (1 - second)}deg)`;
 
-  const clipLeft = 55;
-  const clipWidth = 540;
+  const clipLeft = 85;
+  const clipWidth = 360;
   const clipRight = 720 - (clipLeft + clipWidth * sweep);
-  const highlightClip = `inset(560px ${clipRight}px 304px ${clipLeft}px)`;
+  const highlightClip = `inset(575px ${clipRight}px 308px ${clipLeft}px)`;
 
   return (
     <AbsoluteFill style={{backgroundColor: '#050505', overflow: 'hidden'}}>

@@ -1,20 +1,22 @@
-# Shot 08 — original paper throw, relighting and highlight
+# Shot 08 — fully generated dense papers, relighting and highlight
 
 Prepared for the short sample on 2026-11-02.
 
 ## Original production imagery
 
-No user-supplied reference image, reference pixels or reference-derived image is used in this version. The three production sources were generated independently from text prompts without an input image:
+No user-supplied reference image, reference pixels or reference-derived image is used. The production sources were generated independently without an input reference image:
 
 - `lab8-desk-source.png`: original dark walnut desk.
-- `lab8-paper-a-source.png`: original blank curled sheet on a chroma background.
-- `lab8-paper-b-source.png`: original blank bent sheet on a chroma background.
+- `lab8-full-paper-a-source.png`: a complete generated printed report, including its chart, dense body text, numerical labels and source line.
+- `lab8-full-paper-b-source.png`: a complete generated printed article, including its dense paragraphs and the selected sentence.
 
-`scripts/build_lab8_papers.py` removes the chroma backgrounds, rasterizes original page layouts onto the two sheets and bakes a soft multiplicative exposure change into the second sheet. It does not add a white lighting stripe or screen-blended overlay.
+Both sheets are flat rectangles with square corners. Neither has a folded, curled or dog-eared lower corner. The paper, typography, chart and article layout are part of the generated images; they are not programmatically constructed or typeset.
 
-## Verified data and original page content
+`scripts/prepare_lab8_generated.py` only cuts the finished sheets out of their chroma backgrounds, scales them without distortion, bakes a soft multiplicative exposure change into the second sheet, and prepares the separate yellow marker effect. It does not draw a paper, chart, paragraph or selected sentence.
 
-The two original pages use the fact-checked MIC Statistics Bureau, Housing and Land Survey 2023 values:
+## Verified data visible in the generated pages
+
+The pages use the fact-checked MIC Statistics Bureau, Housing and Land Survey 2023 values:
 
 - Japan vacant homes: **9.002 million**.
 - Rental units: **4.436 million**.
@@ -23,7 +25,7 @@ The two original pages use the fact-checked MIC Statistics Bureau, Housing and L
 - For sale: **326,000**.
 - Tokyo: about **898,000 vacant homes**, or **10.9%** of its housing stock.
 
-The first sheet contains the proportional category chart and source line. The second sheet explains that vacancy is not necessarily abandonment. The highlighted sentence is original wording: **“Tokyo’s vacancy rate was 10.9% in 2023.”** Text faces rasterized into the sheets are DejaVu Serif and Montserrat. No third-party report scan is redistributed.
+The highlighted sentence generated into the second sheet is: **“Tokyo’s vacancy rate was 10.9% in 2023.”** Both sheets carry the MIC source line. No third-party report scan is redistributed.
 
 ## Output assets
 
@@ -34,7 +36,7 @@ The first sheet contains the proportional category chart and source line. The se
 - `lab8-highlight-stroke.png`
 - `lab8-highlight-content.png`
 
-The transparent highlight-content asset contains the yellow stroke and original dark ink, so the sweep never washes out the selected sentence.
+The transparent highlight-content asset contains the yellow stroke and the original generated dark ink, so the sweep does not wash out the selected sentence.
 
 ## Animation scope
 
