@@ -30,8 +30,10 @@ import {LabDataCity} from './LabDataCity';
 import {LabPaperThrow} from './LabPaperThrow';
 import {LabLaptopVideos} from './LabLaptopVideos';
 import {LabHeadlineDrop} from './LabHeadlineDrop';
+import {LabWebExcerpt} from './LabWebExcerpt';
 export const Root: React.FC = () => (
   <>
+    <Composition id="labWebExcerpt" component={LabWebExcerpt} durationInFrames={300} fps={30} width={1920} height={1080} />
     <Composition id="labHeadlineDrop" component={LabHeadlineDrop} durationInFrames={300} fps={30} width={1920} height={1080} />
     <Composition id="labLaptopVideos" component={LabLaptopVideos} durationInFrames={360} fps={30} width={1920} height={1080} />
     <Composition id="labPaperThrow" component={LabPaperThrow} durationInFrames={300} fps={30} width={1920} height={1080} />
