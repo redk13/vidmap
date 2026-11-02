@@ -55,7 +55,8 @@ const scenes: SceneSpec[] = [
     highlights: [
       {x: 340, y: 378, w: 280, h: 30},
       {x: 340, y: 428, w: 320, h: 30, delay: 6},
-      {x: 340, y: 478, w: 870, h: 30, delay: 12},
+      {x: 340, y: 478, w: 730, h: 30, delay: 12},
+      {x: 364, y: 516, w: 848, h: 30, delay: 12},
     ],
   },
 ];

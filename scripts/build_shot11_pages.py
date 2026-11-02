@@ -153,8 +153,8 @@ def build_eia():
     bullets = [
         (400, 'Primary energy use'),
         (450, 'Purchased electricity'),
-        (500, 'Electrical system energy losses (energy conversion and other losses associated with'),
-        (538, 'generating, transmitting, and distributing purchased electricity)'),
+        (500, 'Electrical system energy losses (energy conversion and other losses'),
+        (538, 'associated with generating, transmitting, and distributing purchased electricity)'),
         (588, 'Other energy losses'),
     ]
     for idx, (yy, s) in enumerate(bullets):
