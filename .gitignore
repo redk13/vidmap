@@ -5,3 +5,4 @@ parts/
 *.mp4
 !public/yt*.mp4
 !public/lab7-*.mp4
+!public/lab9-*.mp4
