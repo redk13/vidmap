@@ -91,9 +91,9 @@ export const LabHeadlineDrop: React.FC = () => {
       </Sequence>
       <Sequence from={100} durationInFrames={100}>
         <HeadlineBoard
-          title="China to surpass Japan to become second largest economy"
+          title="Bank of England raises interest rates"
           color="#ff9a8a"
-          source="Source: Wikinews · 2 Jan 2010 · CC BY 2.5 · en.wikinews.org"
+          source="Source: Wikinews · 11 Jan 2007 · CC BY 2.5 · en.wikinews.org"
         />
       </Sequence>
       <Sequence from={200} durationInFrames={100}>

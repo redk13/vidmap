@@ -26,11 +26,12 @@ Attribution and reuse requirements recorded from the policy and reuse guidance: 
 
 ### 2. Coral board
 
-- Exact headline: **“China to surpass Japan to become second largest economy”**
-- Wikinews publication date: **2 January 2010**.
-- Article: https://en.wikinews.org/wiki/China_to_surpass_Japan_to_become_second_largest_economy
-- Verified archived revision: https://en.wikinews.org/w/index.php?title=China_to_surpass_Japan_to_become_second_largest_economy&oldid=4815849
+- Exact headline: **“Bank of England raises interest rates”**
+- Wikinews publication date: **11 January 2007**.
+- Article: https://en.wikinews.org/wiki/Bank_of_England_raises_interest_rates
+- Verified archived revision: https://en.wikinews.org/w/index.php?title=Bank_of_England_raises_interest_rates&oldid=4814334
 - The archived page explicitly states CC BY 2.5; Published/Archived categories verified.
+- This published event replaces an initially considered forecast headline, so the sample contains no unlabeled projection.
 
 ### 3. Periwinkle board
 
