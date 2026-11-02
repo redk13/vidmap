@@ -41,8 +41,8 @@ const scenes: SceneSpec[] = [
     targetW: 1600,
     targetY: 400,
     highlights: [
-      {x: 300, y: 373, w: 900, h: 29},
-      {x: 300, y: 407, w: 900, h: 29, delay: 7},
+      {x: 300, y: 373, w: 740, h: 29},
+      {x: 300, y: 407, w: 795, h: 29, delay: 7},
     ],
   },
   {
@@ -53,10 +53,10 @@ const scenes: SceneSpec[] = [
     targetW: 1600,
     targetY: 340,
     highlights: [
-      {x: 340, y: 378, w: 280, h: 30},
-      {x: 340, y: 428, w: 320, h: 30, delay: 6},
-      {x: 340, y: 478, w: 730, h: 30, delay: 12},
-      {x: 364, y: 516, w: 848, h: 30, delay: 12},
+      {x: 340, y: 378, w: 185, h: 30},
+      {x: 340, y: 428, w: 200, h: 30, delay: 6},
+      {x: 340, y: 478, w: 640, h: 30, delay: 12},
+      {x: 364, y: 516, w: 730, h: 30, delay: 12},
     ],
   },
 ];
