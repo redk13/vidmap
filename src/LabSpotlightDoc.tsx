@@ -22,8 +22,8 @@ export const LabSpotlightDoc: React.FC = () => {
   return (
     <AbsoluteFill style={{backgroundColor: '#020303', overflow: 'hidden'}}>
       <AbsoluteFill style={{transform: `scale(${zoom})`, transformOrigin: '52% 68%'}}>
-        <Img src={staticFile('lab8-document-clean.webp')} style={{width: 1920, height: 1080}} />
-        <Img src={staticFile('lab8-document-highlight.webp')} style={{width: 1920, height: 1080, clipPath: highlightClip}} />
+        <Img src={staticFile('lab8-document-clean.webp')} style={{position: 'absolute', left: 0, top: 0, width: 1920, height: 1080}} />
+        <Img src={staticFile('lab8-document-highlight.webp')} style={{position: 'absolute', left: 0, top: 0, width: 1920, height: 1080, clipPath: highlightClip}} />
       </AbsoluteFill>
 
       <AbsoluteFill
