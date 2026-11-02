@@ -15,6 +15,7 @@
 - **Montserrat Italic**, Google Fonts / Julieta Ulanovsky. Source: https://github.com/google/fonts/tree/main/ofl/montserrat
 - Both are distributed under the **SIL Open Font License 1.1**. License texts: https://openfontlicense.org/open-font-license-official-text/
 - Local font files are bundled so rendering does not depend on system fonts or a font CDN.
+- Full copyright and license notices are included in `shot13-Kalam-OFL.txt` and `shot13-Montserrat-OFL.txt`.
 
 ## Audio
 - `lab13-writing.wav` is an original deterministic synthesis: soft paper placement, filtered pencil-writing texture and a very quiet ambient bed.
