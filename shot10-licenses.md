@@ -1,52 +1,54 @@
-# Shot 10 — verified licensed headlines and original background
+# Shot 10 — three distinct licensed publishers, reference typography
 
-Verified on 2026-11-02 before rendering.
+Verified on 2026-11-02 before the corrected render.
 
-## Reference boundary and staging
+## Reference boundary and typography
 
-The two supplied screenshots guide the staging only: a publisher/title line above each headline, a published date below it, and newer boards dropping into the same scene while earlier boards remain visible and recede. Their Euronews, BBC and Reuters logos, yellow treatment, article claims, background pixels and proprietary layouts are not copied.
+The screenshots guide the staging and type proportions only. Their Euronews, BBC and Reuters logos, yellow boards, claims and background pixels are not copied. The corrected sample uses **three genuinely different publisher names as plain text**, one unified mint board color, and three different licensed headlines.
 
-The production sample uses an original generated city background, **one unified mint color for every board**, and plain text **“Wikinews”** above each headline as attribution—not the Wikinews logo. Each headline has its real publication date below it. A small `Headlines: Wikinews · CC BY 2.5 · en.wikinews.org` line remains at the bottom.
+- Headline type: **Montserrat ExtraBold (800)**, 45px, two deliberate lines, dark navy on mint.
+- Publisher line: Montserrat, 60px, with a different real publisher name above each board.
+- Date line: directly below the board and right-aligned like the reference; `PUBLISHED` is lighter at 18px and the date is bold at 20px.
+- Board width: 1040px on a 1920px canvas, close to the reference's proportional width; no oversized one-line banner.
+- No publisher logo or trademark artwork is reproduced.
 
-## Headline license check
-
-Current policy: https://en.wikinews.org/wiki/Wikinews:Copyright
-
-English Wikinews states that material published after 25 September 2005 and before 16 December 2024 is under **Creative Commons Attribution 2.5**. Each selected article also carries an explicit archived-page notice stating that its text is licensed under CC BY 2.5 and is categorized as **Published** and **Archived**. No third-party article title quoted in the references is used.
-
-License: https://creativecommons.org/licenses/by/2.5/
-
-Attribution and reuse requirements recorded from the policy and reuse guidance: attribute to **Wikinews**, identify **CC BY 2.5**, and preserve links to the source articles and license in this card. Dates stay with their headlines so historical items are not presented as current 2026 news.
-
-### 1. First mint board
+## 1. Wikinews — CC BY 2.5
 
 - Exact headline: **“Central banks worldwide cut interest rates”**
-- Wikinews publication date: **8 October 2008**.
+- Publication date: **8 October 2008**.
 - Article: https://en.wikinews.org/wiki/Central_banks_worldwide_cut_interest_rates
 - Verified archived revision: https://en.wikinews.org/w/index.php?title=Central_banks_worldwide_cut_interest_rates&oldid=4815646
-- The archived page explicitly states CC BY 2.5; Published/Archived categories verified.
+- The archived page explicitly states that its text is under **Creative Commons Attribution 2.5**, and it is categorized Published/Archived.
+- Policy: https://en.wikinews.org/wiki/Wikinews:Copyright
+- License: https://creativecommons.org/licenses/by/2.5/
+- Attribution shown: **Wikinews**, date, CC BY 2.5 and `en.wikinews.org`.
 
-### 2. Second mint board
+## 2. Global Voices — CC BY 3.0
 
-- Exact headline: **“Bank of England raises interest rates”**
-- Wikinews publication date: **11 January 2007**.
-- Article: https://en.wikinews.org/wiki/Bank_of_England_raises_interest_rates
-- Verified archived revision: https://en.wikinews.org/w/index.php?title=Bank_of_England_raises_interest_rates&oldid=4814334
-- The archived page explicitly states CC BY 2.5; Published/Archived categories verified.
-- This published event replaces an initially considered forecast headline, so the sample contains no unlabeled projection.
+- Exact headline: **“Chinese President's Ambitious Xiongan Dream Sparks Skepticism”**
+- Author: **Jack Hu**.
+- Publication date: **16 April 2017**.
+- Article: https://globalvoices.org/2017/04/16/chinese-presidents-ambitious-xiangan-dream-sparks-skepticism/
+- The article itself displays a **Creative Commons Attribution 3.0** link, names Jack Hu as the writer, and shows the publication date.
+- Republishing policy: https://globalvoices.org/about/global-voices-attribution-policy/ — Global Voices content is Attribution-only; credit and a link back to the original are required.
+- License: https://creativecommons.org/licenses/by/3.0/
+- Attribution shown: **Global Voices / Jack Hu**, CC BY 3.0 and `globalvoices.org`; the article URL is preserved here.
 
-### 3. Third mint board
+## 3. SciDev.Net — CC BY 3.0
 
-- Exact headline: **“Hungary extends fuel price cap”**
-- Wikinews publication date: **16 February 2022**.
-- Article: https://en.wikinews.org/wiki/Hungary_extends_fuel_price_cap
-- Verified archived revision: https://en.wikinews.org/w/index.php?title=Hungary_extends_fuel_price_cap&oldid=4819615
-- The archived page explicitly states CC BY 2.5; Published/Archived categories verified.
+- Exact headline: **“Study breaks down Nigerian solar power failure”**
+- Author: **Adole Abutu**.
+- Publication date: **19 January 2016** (displayed on the article as `19/01/16`).
+- Article: https://www.scidev.net/global/news/nigerian-solar-power-failure/
+- The article explicitly invites republishing under its Creative Commons Attribution license and names Adole Abutu.
+- Policy: https://www.scidev.net/content/policies.html — written content is **Creative Commons Attribution 3.0**; authors and SciDev.Net must be credited with a link back to the original article. Images need separate clearance.
+- License: https://creativecommons.org/licenses/by/3.0/
+- Attribution shown: **SciDev.Net / Adole Abutu**, CC BY 3.0 and `scidev.net`; the article URL is preserved here.
 
-## Background asset
+## Background and media boundary
 
-`lab10-finance-bg.png` is an original text-to-image generation: an out-of-focus financial district at blue hour. It contains no input image, reference pixels, readable signs, logos or watermarks. No Wikinews article images or other third-party media are copied; only the three CC BY article titles are reused.
+`lab10-finance-bg.png` is an original text-to-image generation: an out-of-focus financial district at blue hour. It contains no input image, reference pixels, readable signs, logos or watermarks. No article photographs, publisher logos or third-party media are used; only the three verified article titles and their metadata are reused.
 
 ## Animation scope
 
-A silent 10-second Remotion composition, `labHeadlineDrop`, 300 frames at 30fps, 1920×1080. The first group enters from above and stays. The second and third groups then drop into lower slots in the same scene; earlier groups shift down slightly, dim and soften but never exit or disappear. All three remain visible at the end, with the newest group current. Every board uses the same mint color. No camera shake, stacked-logo copying or yellow reference treatment.
+A silent 10-second Remotion composition, `labHeadlineDrop`, 300 frames at 30fps, 1920×1080. The first group enters and stays. The second and third groups drop into the same scene; earlier groups shift down slightly, dim and soften but never disappear. All three remain visible at the end. Every board uses the same mint color, while each publisher name and headline is different. No camera shake or yellow reference treatment.
