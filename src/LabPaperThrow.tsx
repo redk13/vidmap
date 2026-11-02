@@ -11,6 +11,10 @@ export const LabPaperThrow: React.FC = () => {
   const second = spring({frame: Math.max(0, frame - 28), fps, config: {damping: 16, stiffness: 78, mass: 0.9}});
   const light = interpolate(frame, [86, 122], [0, 1], {...clamp, easing: Easing.bezier(0.4, 0, 0.2, 1)});
   const sweep = interpolate(frame, [138, 171], [0, 1], {...clamp, easing: Easing.bezier(0.45, 0, 0.2, 1)});
+  const push = interpolate(frame, [82, 132], [0, 1], {...clamp, easing: Easing.bezier(0.4, 0, 0.2, 1)});
+  const zoom = 1 + 0.42 * push;
+  const cameraX = push * (960 - zoom * 1060.5);
+  const cameraY = push * (540 - zoom * 591.5);
 
   const firstTransform = `translate3d(${250 - 950 * (1 - first)}px, ${90 - 800 * (1 - first)}px, 0) rotate(${-7 - 25 * (1 - first)}deg)`;
   const secondTransform = `translate3d(${800 + 900 * (1 - second)}px, ${60 - 850 * (1 - second)}px, 0) rotate(${5 + 25 * (1 - second)}deg)`;
@@ -22,6 +26,7 @@ export const LabPaperThrow: React.FC = () => {
 
   return (
     <AbsoluteFill style={{backgroundColor: '#050505', overflow: 'hidden'}}>
+      <AbsoluteFill style={{transform: `translate3d(${cameraX}px, ${cameraY}px, 0) scale(${zoom})`, transformOrigin: '0 0 0'}}>
       <Img src={staticFile('lab8-desk.webp')} style={{position: 'absolute', width: 1920, height: 1080, filter: `brightness(${1 - 0.28 * light})`}} />
 
       {/* First printed sheet is thrown onto the desk and stays there. */}
@@ -39,6 +44,7 @@ export const LabPaperThrow: React.FC = () => {
           <Img src={staticFile('lab8-highlight-content.png')} style={{...pageStyle, clipPath: highlightClip}} />
         </AbsoluteFill>
       ) : null}
+      </AbsoluteFill>
     </AbsoluteFill>
   );
 };

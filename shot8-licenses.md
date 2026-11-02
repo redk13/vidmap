@@ -10,7 +10,7 @@ No user-supplied reference image, reference pixels or reference-derived image is
 - `lab8-full-paper-a-source.png`: a complete generated printed report, including its chart, dense body text, numerical labels and source line.
 - `lab8-full-paper-b-source.png`: a complete generated printed article, including its dense paragraphs and the selected sentence.
 
-Both sheets are flat rectangles with square corners. Neither has a folded, curled or dog-eared lower corner. The paper, typography, chart and article layout are part of the generated images; they are not programmatically constructed or typeset.
+Both sheets retain intact square corners with no folded, curled or dog-eared lower corner. Subtle paper fibers, slightly uneven physical edges, thin edge shadows and a gentle surface bow give them a more physical photographed-paper appearance. The paper, typography, chart and article layout are part of the generated images; they are not programmatically constructed or typeset.
 
 `scripts/prepare_lab8_generated.py` only cuts the finished sheets out of their chroma backgrounds, scales them without distortion, bakes a soft multiplicative exposure change into the second sheet, and prepares the separate yellow marker effect. It does not draw a paper, chart, paragraph or selected sentence.
 
@@ -40,6 +40,6 @@ The transparent highlight-content asset contains the yellow stroke and the origi
 
 ## Animation scope
 
-A silent 10-second Remotion composition. The first printed sheet is thrown onto the desk; the second then falls over it. Only after both land do the surroundings dim and the baked paper illumination rise. The yellow marker sweeps left-to-right after the illumination and remains for reading. There is no camera shake, tearing, floating data card, platform branding or reference-derived compositing.
+A silent 10-second Remotion composition. The first printed sheet is thrown onto the desk; the second then falls over it. Only after both land do the surroundings dim and the baked paper illumination rise. A smooth 1.42× camera push moves toward the measured highlight location and settles before the yellow marker sweeps left-to-right; the highlight remains for reading. There is no camera shake, tearing, floating data card, platform branding or reference-derived compositing.
 
 The user permits different verified data and different data-graphic elements in future productions.
