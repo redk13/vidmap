@@ -120,5 +120,13 @@ def make_image(highlighted: bool) -> Image.Image:
     d.text((text_x, target_y), target, font=f_body, fill=ink)
     return im
 
-make_image(False).convert('RGB').save(PUBLIC / 'lab8-document-clean.webp', lossless=True, quality=100)
-make_image(True).convert('RGB').save(PUBLIC / 'lab8-document-highlight.webp', lossless=True, quality=100)
+clean = make_image(False)
+highlighted = make_image(True)
+clean.convert('RGB').save(PUBLIC / 'lab8-document-clean.webp', lossless=True, quality=100)
+highlighted.convert('RGB').save(PUBLIC / 'lab8-document-highlight.webp', lossless=True, quality=100)
+# Only the yellow stroke and the printed ink inside it are exposed to Remotion.
+# Everything outside the stroke is transparent, so no rectangular page overlay
+# can appear and no blend mode can wash out the letters.
+content = highlighted.convert('RGBA')
+content.putalpha(stroke.getchannel('A'))
+content.save(PUBLIC / 'lab8-highlight-content.png')
