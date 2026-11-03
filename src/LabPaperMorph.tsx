@@ -1,20 +1,8 @@
 import React from 'react';
-import {AbsoluteFill, Audio, Easing, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
+import {AbsoluteFill, Audio, Easing, Img, interpolate, staticFile, useCurrentFrame} from 'remotion';
 
 const clamp = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'} as const;
 const CENTER_ORDER = [3, 4, 2, 5, 1, 6, 0, 7];
-const PARTICLES = Array.from({length: 42}, (_, i) => {
-  const angle = i * 2.399963;
-  const radius = 230 + (i * 47) % 190;
-  return {
-    angle,
-    x: Math.cos(angle) * radius,
-    y: Math.sin(angle) * radius * 0.66,
-    size: 4 + (i * 7) % 10,
-    delay: (i % 7) * 0.035,
-    yellow: i % 6 === 0,
-  };
-});
 
 const Sheet: React.FC<{src: string; x: number; y: number; w: number; h: number; p: number; offsetY: number}> = ({src, x, y, w, h, p, offsetY}) => {
   const strips = 8;
@@ -41,14 +29,11 @@ const Sheet: React.FC<{src: string; x: number; y: number; w: number; h: number; 
 
 export const LabPaperMorph: React.FC = () => {
   const frame = useCurrentFrame();
-  const {fps} = useVideoConfig();
   const openP = interpolate(frame, [8, 34, 196, 222], [0, 1, 1, 0], {...clamp, easing: Easing.inOut(Easing.cubic)});
   const appear = Math.min(
-    interpolate(frame, [0, 8], [0, 1], {...clamp, easing: Easing.out(Easing.cubic)}),
-    interpolate(frame, [222, 232], [1, 0], {...clamp, easing: Easing.in(Easing.cubic)})
+    interpolate(frame, [0, 3], [0, 1], {...clamp, easing: Easing.out(Easing.cubic)}),
+    interpolate(frame, [222, 225], [1, 0], {...clamp, easing: Easing.in(Easing.cubic)})
   );
-  const ioFrame = Math.max(0, Math.min(frame, 232 - frame));
-  const wadSpring = spring({frame: ioFrame, fps, config: {damping: 12, stiffness: 180, mass: 0.62}});
   const wadOut = interpolate(openP, [0.16, 0.38], [0, 1], clamp);
   const wadOpacity = appear * (1 - wadOut);
   const halfIn = interpolate(openP, [0.10, 0.28], [0, 1], clamp);
@@ -57,7 +42,6 @@ export const LabPaperMorph: React.FC = () => {
   const halfScale = 0.34 + interpolate(openP, [0.10, 0.74], [0, 1], clamp) * 0.84;
   const mainP = interpolate(openP, [0.40, 0.90], [0, 1], clamp);
   const stripP = interpolate(openP, [0.50, 1], [0, 1], clamp);
-  const particleGate = 1 - interpolate(openP, [0, 0.24], [0, 1], clamp);
 
   return (
     <AbsoluteFill style={{backgroundColor: '#0c0e10', overflow: 'hidden'}}>
@@ -67,15 +51,7 @@ export const LabPaperMorph: React.FC = () => {
 
       <div style={{position: 'absolute', left: 760, top: 720, width: 400, height: 55, borderRadius: '50%', background: 'rgba(0,0,0,.52)', filter: 'blur(20px)', opacity: wadOpacity * 0.72, transform: `scaleX(${0.55 + appear * 0.45})`}} />
 
-      {PARTICLES.map((p, i) => {
-        const local = interpolate(appear, [p.delay, 1], [0, 1], clamp);
-        const opacity = Math.sin(Math.PI * local) * particleGate;
-        const x = 960 + p.x * (1 - local) + Math.cos(p.angle) * 34 * local;
-        const y = 535 + p.y * (1 - local) + Math.sin(p.angle) * 24 * local;
-        return <div key={i} style={{position: 'absolute', left: x, top: y, width: p.size, height: p.size * 0.55, opacity, background: p.yellow ? '#caa629' : '#e7e5dd', clipPath: 'polygon(8% 12%, 100% 0, 82% 100%, 0 76%)', transform: `rotate(${p.angle * 57.3 + local * 120}deg) scale(${1 - local * 0.35})`, boxShadow: '0 0 8px rgba(255,255,255,.28)'}} />;
-      })}
-
-      <div style={{position: 'absolute', left: 760, top: 350, width: 400, height: 369, opacity: wadOpacity, clipPath: `circle(${appear * 76}% at 50% 50%)`, transform: `translateY(${(1 - wadSpring) * 22}px) rotate(${(1 - wadSpring) * -12 + openP * 10}deg) scale(${(0.28 + wadSpring * 0.72) * (1 + openP * 0.12)})`, transformOrigin: 'center', filter: 'drop-shadow(0 22px 22px rgba(0,0,0,.58))'}}>
+      <div style={{position: 'absolute', left: 760, top: 350, width: 400, height: 369, opacity: wadOpacity, clipPath: `circle(${appear * 76}% at 50% 50%)`, transform: `scale(${(0.35 + appear * 0.65) * (1 + openP * 0.12)})`, transformOrigin: 'center', filter: 'drop-shadow(0 22px 22px rgba(0,0,0,.58))'}}>
         <Img src={staticFile('crump-wad-2d.png')} style={{width: '100%', height: '100%', objectFit: 'contain'}} />
       </div>
 
@@ -83,8 +59,8 @@ export const LabPaperMorph: React.FC = () => {
         <Img src={staticFile('crump-half-2d.png')} style={{width: '100%', height: '100%', objectFit: 'contain'}} />
       </div>
 
-      <Sheet src="crump-paper-2d.png" x={420} y={140} w={1080} h={516} p={mainP} offsetY={155} />
-      <Sheet src="crump-strip-2d.png" x={540} y={650} w={840} h={351.5} p={stripP} offsetY={-255} />
+      <Sheet src="crump-strip-2d.png" x={540} y={140} w={840} h={351.5} p={stripP} offsetY={170} />
+      <Sheet src="crump-paper-2d.png" x={420} y={500} w={1080} h={516} p={mainP} offsetY={-245} />
     </AbsoluteFill>
   );
 };

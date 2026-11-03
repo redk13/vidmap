@@ -16,8 +16,8 @@
 - These are controlled transition stills, not a claim of physical cloth simulation.
 
 ## Animation method
-- Original Remotion/CSS 2.5D only: a converging paper-fleck entrance, circular wad reveal, a short half-open bridge, then eight vertical image strips per printed sheet unfolding with CSS perspective from the center outward.
-- Timing mirrors the original requirement: appear frames 0–8; fast open 8–34; readable hold; exact reverse close 196–222; vanish 222–232; 240 frames total.
+- Original Remotion/CSS 2.5D only: a direct three-frame materialization, circular wad reveal, a short half-open bridge, then eight vertical image strips per printed sheet unfolding with CSS perspective from the center outward. Revision 2 removes the converging flecks, entrance rotation and drift; Chapter 2 is above and the question sheet below.
+- Timing: appear frames 0–3; fast open 8–34; readable hold; exact reverse close 196–222; fast vanish 222–225; 240 frames total.
 - No camera shake, flying wad, tumble, slow opening or third-party animation library.
 
 ## Audio
