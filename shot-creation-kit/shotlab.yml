@@ -1,0 +1,28 @@
+name: shot-creation-kit
+on:
+  workflow_dispatch:
+    inputs:
+      comp:
+        description: 'Remotion composition id'
+        required: true
+        default: pipelineCheck
+      frames:
+        description: 'Inclusive frame range, e.g. 0-29'
+        required: true
+        default: 0-29
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx remotion render src/index.ts "${{ inputs.comp }}" out/shot.mp4 --frames="${{ inputs.frames }}" --concurrency=2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shot
+          path: out/shot.mp4
+          if-no-files-found: error
