@@ -21,9 +21,10 @@
 - No camera shake, flying wad, tumble, slow opening or third-party animation library.
 
 ## Audio
-- `crumple-morph.wav` is original deterministic synthesis: quiet ambience, converging fiber ticks, paper unfurl/whoosh and mirrored closing/exit textures.
+- `crumple-morph.wav` is original deterministic synthesis: quiet ambience, a short materialization snap, paper unfurl/whoosh and mirrored closing/exit textures.
 - No narration, sampled music, third-party SFX or platform audio.
 
 ## Technical
 - Sample: 1920×1080, 30 fps, 240 frames / 8 seconds.
-- Sample only; not approved and not part of the approved-shot vault unless the user explicitly approves after viewing.
+- Revision 2 was explicitly approved by the user for the shot library and Drive archive.
+- Reuse rule confirmed by the user: all writing inside the papers must change to suit the approved information, narration and topic; the sample's Chapter 2 title and question are examples only.
