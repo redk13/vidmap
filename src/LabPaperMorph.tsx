@@ -1,0 +1,90 @@
+import React from 'react';
+import {AbsoluteFill, Audio, Easing, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
+
+const clamp = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'} as const;
+const CENTER_ORDER = [3, 4, 2, 5, 1, 6, 0, 7];
+const PARTICLES = Array.from({length: 42}, (_, i) => {
+  const angle = i * 2.399963;
+  const radius = 230 + (i * 47) % 190;
+  return {
+    angle,
+    x: Math.cos(angle) * radius,
+    y: Math.sin(angle) * radius * 0.66,
+    size: 4 + (i * 7) % 10,
+    delay: (i % 7) * 0.035,
+    yellow: i % 6 === 0,
+  };
+});
+
+const Sheet: React.FC<{src: string; x: number; y: number; w: number; h: number; p: number; offsetY: number}> = ({src, x, y, w, h, p, offsetY}) => {
+  const strips = 8;
+  const stripW = w / strips;
+  const opacity = interpolate(p, [0, 0.1], [0, 1], clamp);
+  const scale = 0.42 + p * 0.58;
+  return (
+    <div style={{position: 'absolute', left: x, top: y, width: w, height: h, opacity, transform: `translateY(${(1 - p) * offsetY}px) scale(${scale})`, transformOrigin: 'center', perspective: '1150px', transformStyle: 'preserve-3d', filter: 'drop-shadow(0 20px 20px rgba(0,0,0,.46))'}}>
+      {Array.from({length: strips}, (_, i) => {
+        const rank = CENTER_ORDER.indexOf(i);
+        const delay = rank * 0.045;
+        const sp = interpolate(p, [delay, 0.55 + delay], [0, 1], {...clamp, easing: Easing.out(Easing.cubic)});
+        const direction = i % 2 === 0 ? -1 : 1;
+        return (
+          <div key={i} style={{position: 'absolute', left: i * stripW, top: 0, width: stripW, height: h, overflow: 'hidden', backfaceVisibility: 'hidden', transformOrigin: i % 2 === 0 ? 'left center' : 'right center', transform: `translateZ(${(1 - sp) * -105}px) rotateY(${(1 - sp) * direction * 78}deg)`, filter: `brightness(${0.52 + sp * 0.48})`}}>
+            <Img src={staticFile(src)} style={{position: 'absolute', left: -i * stripW, top: 0, width: w, height: h, maxWidth: 'none', objectFit: 'fill'}} />
+            <div style={{position: 'absolute', inset: 0, background: direction < 0 ? 'linear-gradient(90deg, rgba(0,0,0,.78), rgba(255,255,255,.28))' : 'linear-gradient(90deg, rgba(255,255,255,.28), rgba(0,0,0,.78))', opacity: (1 - sp) * 0.72, pointerEvents: 'none'}} />
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+export const LabPaperMorph: React.FC = () => {
+  const frame = useCurrentFrame();
+  const {fps} = useVideoConfig();
+  const openP = interpolate(frame, [8, 34, 196, 222], [0, 1, 1, 0], {...clamp, easing: Easing.inOut(Easing.cubic)});
+  const appear = Math.min(
+    interpolate(frame, [0, 8], [0, 1], {...clamp, easing: Easing.out(Easing.cubic)}),
+    interpolate(frame, [222, 232], [1, 0], {...clamp, easing: Easing.in(Easing.cubic)})
+  );
+  const ioFrame = Math.max(0, Math.min(frame, 232 - frame));
+  const wadSpring = spring({frame: ioFrame, fps, config: {damping: 12, stiffness: 180, mass: 0.62}});
+  const wadOut = interpolate(openP, [0.16, 0.38], [0, 1], clamp);
+  const wadOpacity = appear * (1 - wadOut);
+  const halfIn = interpolate(openP, [0.10, 0.28], [0, 1], clamp);
+  const halfOut = interpolate(openP, [0.52, 0.74], [0, 1], clamp);
+  const halfOpacity = halfIn * (1 - halfOut) * appear;
+  const halfScale = 0.34 + interpolate(openP, [0.10, 0.74], [0, 1], clamp) * 0.84;
+  const mainP = interpolate(openP, [0.40, 0.90], [0, 1], clamp);
+  const stripP = interpolate(openP, [0.50, 1], [0, 1], clamp);
+  const particleGate = 1 - interpolate(openP, [0, 0.24], [0, 1], clamp);
+
+  return (
+    <AbsoluteFill style={{backgroundColor: '#0c0e10', overflow: 'hidden'}}>
+      <Img src={staticFile('city-bg.jpg')} style={{position: 'absolute', width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(13px) brightness(.64) saturate(.75)', transform: 'scale(1.06)'}} />
+      <AbsoluteFill style={{background: `radial-gradient(ellipse at 50% 49%, rgba(222,229,224,${0.08 + openP * 0.10}) 0%, rgba(0,0,0,.12) 46%, rgba(0,0,0,.60) 100%)`}} />
+      <Audio src={staticFile('crumple-morph.wav')} volume={1.08} />
+
+      <div style={{position: 'absolute', left: 760, top: 720, width: 400, height: 55, borderRadius: '50%', background: 'rgba(0,0,0,.52)', filter: 'blur(20px)', opacity: wadOpacity * 0.72, transform: `scaleX(${0.55 + appear * 0.45})`}} />
+
+      {PARTICLES.map((p, i) => {
+        const local = interpolate(appear, [p.delay, 1], [0, 1], clamp);
+        const opacity = Math.sin(Math.PI * local) * particleGate;
+        const x = 960 + p.x * (1 - local) + Math.cos(p.angle) * 34 * local;
+        const y = 535 + p.y * (1 - local) + Math.sin(p.angle) * 24 * local;
+        return <div key={i} style={{position: 'absolute', left: x, top: y, width: p.size, height: p.size * 0.55, opacity, background: p.yellow ? '#caa629' : '#e7e5dd', clipPath: 'polygon(8% 12%, 100% 0, 82% 100%, 0 76%)', transform: `rotate(${p.angle * 57.3 + local * 120}deg) scale(${1 - local * 0.35})`, boxShadow: '0 0 8px rgba(255,255,255,.28)'}} />;
+      })}
+
+      <div style={{position: 'absolute', left: 760, top: 350, width: 400, height: 369, opacity: wadOpacity, clipPath: `circle(${appear * 76}% at 50% 50%)`, transform: `translateY(${(1 - wadSpring) * 22}px) rotate(${(1 - wadSpring) * -12 + openP * 10}deg) scale(${(0.28 + wadSpring * 0.72) * (1 + openP * 0.12)})`, transformOrigin: 'center', filter: 'drop-shadow(0 22px 22px rgba(0,0,0,.58))'}}>
+        <Img src={staticFile('crump-wad-2d.png')} style={{width: '100%', height: '100%', objectFit: 'contain'}} />
+      </div>
+
+      <div style={{position: 'absolute', left: 410, top: 256, width: 1100, height: 568, opacity: halfOpacity, clipPath: `inset(0 ${50 * (1 - halfIn)}% 0 ${50 * (1 - halfIn)}%)`, transform: `translateY(${(0.5 - openP) * 28}px) rotate(${(openP - 0.4) * 3}deg) scale(${halfScale})`, transformOrigin: 'center', filter: 'drop-shadow(0 24px 24px rgba(0,0,0,.52))'}}>
+        <Img src={staticFile('crump-half-2d.png')} style={{width: '100%', height: '100%', objectFit: 'contain'}} />
+      </div>
+
+      <Sheet src="crump-paper-2d.png" x={420} y={140} w={1080} h={516} p={mainP} offsetY={155} />
+      <Sheet src="crump-strip-2d.png" x={540} y={650} w={840} h={351.5} p={stripP} offsetY={-255} />
+    </AbsoluteFill>
+  );
+};

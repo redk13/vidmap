@@ -22,7 +22,7 @@ import {LabBoard} from './LabBoard';
 import {LabClip} from './LabClip';
 import {LabPile} from './LabPile';
 import {LabGrid} from './LabGrid';
-import {LabCrumple} from './LabCrumple';
+import {LabPaperMorph} from './LabPaperMorph';
 import {LabTear} from './LabTear';
 import {LabTear6} from './LabTear6';
 import {LabTearWall} from './LabTearWall';
@@ -38,6 +38,7 @@ import {LabOnlineLine} from './LabOnlineLine';
 import {LabNeonFrames} from './LabNeonFrames';
 export const Root: React.FC = () => (
   <>
+    <Composition id="labPaperMorph" component={LabPaperMorph} durationInFrames={240} fps={30} width={1920} height={1080} />
     <Composition id="labNeonFrames" component={LabNeonFrames} durationInFrames={300} fps={30} width={1920} height={1080} />
     <Composition id="labOnlineLine" component={LabOnlineLine} durationInFrames={300} fps={30} width={1920} height={1080} />
     <Composition id="labAnimatedChart" component={LabAnimatedChart} durationInFrames={300} fps={30} width={1920} height={1080} />
@@ -51,7 +52,6 @@ export const Root: React.FC = () => (
     <Composition id="labTearWall" component={LabTearWall} durationInFrames={360} fps={30} width={1920} height={1080} />
     <Composition id="labTear6" component={LabTear6} durationInFrames={360} fps={30} width={1920} height={1080} />
     <Composition id="labTear" component={LabTear} durationInFrames={360} fps={30} width={1920} height={1080} />
-    <Composition id="labCrumple" component={LabCrumple} durationInFrames={240} fps={30} width={1920} height={1080} />
     <Composition id="labGrid" component={LabGrid} durationInFrames={360} fps={30} width={1920} height={1080} />
     <Composition id="labPile" component={LabPile} durationInFrames={360} fps={30} width={1920} height={1080} />
     <Composition id="labClip" component={LabClip} durationInFrames={240} fps={30} width={1920} height={1080} />
