@@ -23,17 +23,18 @@ The pages use the fact-checked MIC Statistics Bureau, Housing and Land Survey 20
 - Other/abandoned: **3.856 million**.
 - Second homes: **384,000**.
 - For sale: **326,000**.
-- Tokyo: about **898,000 vacant homes**, or **10.9%** of its housing stock.
+- Tokyo: **896,500 vacant dwellings** out of **8,201,400 dwellings**; **10.931%**, displayed rounded to **10.9%**.
 
 The highlighted sentence generated into the second sheet is: **“Tokyo’s vacancy rate was 10.9% in 2023.”** Both sheets carry the MIC source line. No third-party report scan is redistributed.
 
 Official direct sources:
 
 - Statistics Bureau survey results index: https://www.stat.go.jp/english/data/jyutaku/results.html
-- 2023 statistical tables on e-Stat: https://www.e-stat.go.jp/en/stat-search/files?tstat=000001207800
+- e-Stat Table 1-2 (Tokyo dwellings and vacant dwellings): https://www.e-stat.go.jp/en/stat-search/files?layout=dataset&toukei=00200522&tstat=000001207800&stat_infid=000040354028
+- e-Stat Table 4 (vacant-dwelling categories): https://www.e-stat.go.jp/en/stat-search/files?layout=dataset&toukei=00200522&tstat=000001207800&stat_infid=000040354032
 - Official basic-tabulation news bulletin (9.002 million vacant dwellings): https://www.stat.go.jp/english/info/news/20241030.html
 
-The source-B raster was corrected on 2026-11-04 from the single-letter `Buveau` defect to **Bureau**. Only the affected source pixels and the derived `lab8-paper2-clean.png`, `lab8-paper2-lit.png`, and `lab8-highlight-content.png` were regenerated; `lab8-paper1.png` and `lab8-highlight-stroke.png` are unchanged.
+On 2026-11-04 the source-B `Buveau` defect was corrected to **Bureau**. The Tokyo figure in both generated source rasters was then aligned with the official e-Stat values above, and the paper and highlight derivatives were regenerated with `scripts/prepare_lab8_generated.py`. The script still only cuts, scales, relights and masks the finished generated sheets; it does not construct or typeset a replacement page.
 
 ## Output assets
 

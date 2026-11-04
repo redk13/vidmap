@@ -176,7 +176,7 @@ export const BillV2: React.FC = () => {
             </div>
             <div style={{background: 'rgba(5,8,13,0.7)', border: '2px solid #4a627c', borderRadius: 14,
               padding: '16px 28px', marginTop: 20, opacity: t(1580, 1610), transform: 'rotate(1deg)'}}>
-              <span style={{fontSize: 25, fontWeight: 800, color: '#fff'}}>EVEN TOKYO: 898K VACANT (10.9%)</span>
+              <span style={{fontSize: 25, fontWeight: 800, color: '#fff'}}>EVEN TOKYO: 896.5K VACANT (10.9%)</span>
             </div>
           </div>
         </div>
