@@ -2,51 +2,50 @@ name: Render corrected shot-kit videos
 
 on:
   workflow_dispatch:
+    inputs:
+      shots:
+        description: 'Comma-separated shot numbers to render'
+        required: false
+        default: '01,02,03,04,07,08,10,12'
+        type: string
 
 permissions:
   contents: read
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+    steps:
+      - id: select
+        env:
+          ALL: '[{"shot":"01","comp":"labBoard","frames":"0-479","muted":"--muted"},{"shot":"02","comp":"labClip","frames":"0-239","muted":"--muted"},{"shot":"03","comp":"labPile","frames":"0-359","muted":"--muted"},{"shot":"04","comp":"labGrid","frames":"0-359","muted":"--muted"},{"shot":"07","comp":"labDataCity","frames":"0-359","muted":"--muted"},{"shot":"08","comp":"labPaperThrow","frames":"0-299","muted":"--muted"},{"shot":"10","comp":"labHeadlineDrop","frames":"0-299","muted":"--muted"},{"shot":"12","comp":"labNeonSequence","frames":"0-299","muted":""}]'
+          SHOTS: ${{ inputs.shots }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          jobs = json.loads(os.environ['ALL'])
+          requested = [s.strip() for s in os.environ['SHOTS'].split(',') if s.strip()]
+          known = {job['shot'] for job in jobs}
+          unknown = sorted(set(requested) - known)
+          if unknown:
+              raise SystemExit('Unknown shot numbers: ' + ', '.join(unknown))
+          selected = [job for job in jobs if job['shot'] in requested]
+          if not selected:
+              raise SystemExit('Select at least one shot')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write('matrix=' + json.dumps({'include': selected}, separators=(',', ':')) + '\n')
+          PY
+
   render:
+    needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       max-parallel: 4
-      matrix:
-        include:
-          - shot: '01'
-            comp: labBoard
-            frames: 0-479
-            muted: '--muted'
-          - shot: '02'
-            comp: labClip
-            frames: 0-239
-            muted: '--muted'
-          - shot: '03'
-            comp: labPile
-            frames: 0-359
-            muted: '--muted'
-          - shot: '04'
-            comp: labGrid
-            frames: 0-359
-            muted: '--muted'
-          - shot: '07'
-            comp: labDataCity
-            frames: 0-359
-            muted: '--muted'
-          - shot: '08'
-            comp: labPaperThrow
-            frames: 0-299
-            muted: '--muted'
-          - shot: '10'
-            comp: labHeadlineDrop
-            frames: 0-299
-            muted: '--muted'
-          - shot: '12'
-            comp: labNeonSequence
-            frames: 0-299
-            muted: ''
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
