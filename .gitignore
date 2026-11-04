@@ -1,0 +1,13 @@
+node_modules/
+out/
+parts/
+*.m4a
+*.mp4
+!public/yt*.mp4
+!public/lab7-*.mp4
+!public/lab9-*.mp4
+!public/lab12-*.mp4
+!public/lab15-*.mp4
+
+__pycache__/
+*.pyc

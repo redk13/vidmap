@@ -1,0 +1,70 @@
+name: Render corrected shot-kit videos
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - shot: '01'
+            comp: labBoard
+            frames: 0-479
+            muted: '--muted'
+          - shot: '02'
+            comp: labClip
+            frames: 0-239
+            muted: '--muted'
+          - shot: '03'
+            comp: labPile
+            frames: 0-359
+            muted: '--muted'
+          - shot: '04'
+            comp: labGrid
+            frames: 0-359
+            muted: '--muted'
+          - shot: '07'
+            comp: labDataCity
+            frames: 0-359
+            muted: '--muted'
+          - shot: '08'
+            comp: labPaperThrow
+            frames: 0-299
+            muted: '--muted'
+          - shot: '10'
+            comp: labHeadlineDrop
+            frames: 0-299
+            muted: '--muted'
+          - shot: '12'
+            comp: labNeonSequence
+            frames: 0-299
+            muted: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Render corrected shot ${{ matrix.shot }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          npx remotion render src/index.ts '${{ matrix.comp }}' 'out/shot${{ matrix.shot }}.mp4' \
+            --frames='${{ matrix.frames }}' --concurrency=2 ${{ matrix.muted }}
+          test -s 'out/shot${{ matrix.shot }}.mp4'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: corrected-shot-${{ matrix.shot }}
+          path: out/shot${{ matrix.shot }}.mp4
+          if-no-files-found: error
+          retention-days: 7

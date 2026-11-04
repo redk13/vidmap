@@ -1,0 +1,61 @@
+name: Validate Tokyo V9 full artifact
+
+on:
+  push:
+    branches: [tokyo-v9]
+    paths:
+      - '.github/workflows/validate-full.yml'
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: GitHub Actions run that produced tokyo-v9-full
+        required: true
+        default: '41289796363'
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: tokyo-v9-full
+          path: artifact
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.run_id || '41291361229' }}
+      - name: Validate streams, duration, tail decode and audio levels
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          mkdir -p out
+          FILE=artifact/tokyo-v9-full.mp4
+          test -s "$FILE"
+          {
+            echo '--- streams and container ---'
+            ffprobe -v error -show_entries format=duration,size,bit_rate \
+              -show_entries stream=codec_name,width,height,nb_frames,r_frame_rate,sample_rate,channels \
+              -of default=noprint_wrappers=1 "$FILE"
+            echo 'tail_decode=PASS'
+            ffmpeg -hide_banner -v error -sseof -2 -i "$FILE" -an -f null -
+            ffmpeg -y -hide_banner -v error -sseof -0.3 -i "$FILE" -frames:v 1 -update 1 out/final-frame.png
+            echo '--- audio levels ---'
+            ffmpeg -hide_banner -i "$FILE" -vn -af volumedetect -f null - 2>out/audio-levels.txt
+            cat out/audio-levels.txt
+          } | tee out/validation-report.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tokyo-v9-full-validation
+          path: |
+            out/validation-report.txt
+            out/audio-levels.txt
+            out/final-frame.png
+          if-no-files-found: error
+          retention-days: 7

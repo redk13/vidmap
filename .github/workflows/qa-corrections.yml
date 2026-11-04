@@ -1,0 +1,88 @@
+name: Tokyo V9 correction samples
+
+on:
+  push:
+    branches: [tokyo-v9]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'scripts/mix_full_audio.py'
+      - '.github/workflows/qa-corrections.yml'
+
+jobs:
+  visual-samples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install Remotion and media-probe dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - name: Render selected visual QA clips only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out/visual
+          render_clip() {
+            local name="$1" comp="$2" frames="$3"
+            echo "QA clip: $name ($comp frames $frames)"
+            npx remotion render src/index.ts "$comp" "out/visual/$name.mp4" \
+              --frames="$frames" --concurrency=2 --muted
+            ffprobe -v error -show_entries format=duration,size \
+              -show_entries stream=codec_name,width,height,nb_frames \
+              -of default=noprint_wrappers=1 "out/visual/$name.mp4"
+          }
+          render_clip council-card coldOpenV2 703-1022
+          render_clip policy-cards finaleV2 940-1230
+          render_clip seoul-halo finaleV2 1680-1870
+          render_clip commuter-waves act1V2 240-740
+          render_clip akiya-bill-photo billV2 1280-1520
+          render_clip akiya-dive-photo diveV2 1180-1450
+          render_clip character-no-bob pyramidsV2 180-340
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tokyo-v9-corrections-visual-qa
+          path: out/visual/*.mp4
+          if-no-files-found: error
+          retention-days: 7
+
+  audio-transition-samples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install audio dependencies
+        run: |
+          python -m pip install --disable-pip-version-check numpy
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - name: Mix and extract short transition checks (no video render)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out/audio
+          python scripts/mix_full_audio.py --output out/full-mix.wav
+          # Short excerpts are centered on VO handoffs and the longest former quiet gaps.
+          ffmpeg -y -v error -ss 57 -i out/full-mix.wav -t 8 -c:a libmp3lame -b:a 192k out/audio/transition-02-03.mp3
+          ffmpeg -y -v error -ss 81 -i out/full-mix.wav -t 8 -c:a libmp3lame -b:a 192k out/audio/transition-03-04.mp3
+          ffmpeg -y -v error -ss 102 -i out/full-mix.wav -t 8 -c:a libmp3lame -b:a 192k out/audio/transition-04-05.mp3
+          ffmpeg -y -v error -ss 200 -i out/full-mix.wav -t 8 -c:a libmp3lame -b:a 192k out/audio/transition-07-08.mp3
+          ffmpeg -y -v error -ss 292 -i out/full-mix.wav -t 8 -c:a libmp3lame -b:a 192k out/audio/transition-09-10.mp3
+          ffmpeg -y -v error -ss 383 -i out/full-mix.wav -t 8 -c:a libmp3lame -b:a 192k out/audio/transition-12-13.mp3
+          ffmpeg -y -v error -ss 403 -i out/full-mix.wav -t 8 -c:a libmp3lame -b:a 192k out/audio/transition-13-14.mp3
+          for f in out/audio/*.mp3; do ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 "$f"; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tokyo-v9-corrections-audio-qa
+          path: out/audio/*.mp3
+          if-no-files-found: error
+          retention-days: 7
